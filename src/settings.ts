@@ -16,6 +16,16 @@ export const CatLoaderSettingsSchema = Type.Object(
       maximum: 20,
       description: "Width of the cat loader in terminal cells.",
     }),
+    color: Type.Union(
+      [
+        Type.Literal("classic"),
+        Type.Literal("black"),
+        Type.Literal("gray"),
+        Type.Literal("white"),
+        Type.Literal("yellow"),
+      ],
+      { default: "classic", description: "Color of the cat loader." },
+    ),
   },
   { additionalProperties: false },
 );

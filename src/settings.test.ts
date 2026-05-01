@@ -30,7 +30,11 @@ describe("settings", () => {
   });
 
   it("defaults enabled when no settings exist", async () => {
-    await expect(loadSettings(cwd)).resolves.toEqual({ enabled: true, sizeCells: 4 });
+    await expect(loadSettings(cwd)).resolves.toEqual({
+      enabled: true,
+      sizeCells: 4,
+      color: "classic",
+    });
   });
 
   it("saves to global pi settings and preserves existing keys", async () => {
@@ -38,11 +42,11 @@ describe("settings", () => {
     await mkdir(join(home, ".pi", "agent"), { recursive: true });
     await writeFile(globalSettingsPath, JSON.stringify({ theme: "dark" }));
 
-    await saveSettings(cwd, { enabled: false, sizeCells: 8 });
+    await saveSettings(cwd, { enabled: false, sizeCells: 8, color: "black" });
 
     await expect(readFile(globalSettingsPath, "utf8").then(JSON.parse)).resolves.toEqual({
       theme: "dark",
-      catLoader: { enabled: false, sizeCells: 8 },
+      catLoader: { enabled: false, sizeCells: 8, color: "black" },
     });
   });
 
@@ -58,6 +62,10 @@ describe("settings", () => {
       JSON.stringify({ catLoader: { enabled: true } }),
     );
 
-    await expect(loadSettings(cwd)).resolves.toEqual({ enabled: true, sizeCells: 4 });
+    await expect(loadSettings(cwd)).resolves.toEqual({
+      enabled: true,
+      sizeCells: 4,
+      color: "classic",
+    });
   });
 });

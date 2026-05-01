@@ -10,7 +10,11 @@ import {
   type TUI,
 } from "@mariozechner/pi-tui";
 
-import { CAT_LOADER_FRAMES, CAT_LOADER_INTERVAL_MS } from "./cat-frames.ts";
+import {
+  CAT_LOADER_FRAMES_BY_COLOR,
+  CAT_LOADER_INTERVAL_MS,
+  type CatLoaderColor,
+} from "./cat-frames.ts";
 import type { CatLoaderSettings } from "./settings.ts";
 
 interface WorkingUi {
@@ -25,6 +29,7 @@ const SOURCE_DIMENSIONS = { widthPx: 112, heightPx: 112 };
 
 let enabled = true;
 let sizeCells = 4;
+let color: CatLoaderColor = "classic";
 let previewTimeout: NodeJS.Timeout | undefined;
 let lastImageId: number | undefined;
 let lastImageRows: number | undefined;
@@ -38,6 +43,7 @@ export function isTmux(): boolean {
 export function configureCatLoader(settings: CatLoaderSettings): void {
   enabled = settings.enabled;
   sizeCells = settings.sizeCells;
+  color = settings.color;
 }
 
 export function getCatLoaderEnabled(): boolean {
@@ -54,6 +60,14 @@ export function getCatLoaderSize(): number {
 
 export function setCatLoaderSize(value: number): void {
   sizeCells = value;
+}
+
+export function getCatLoaderColor(): CatLoaderColor {
+  return color;
+}
+
+export function setCatLoaderColor(value: CatLoaderColor): void {
+  color = value;
 }
 
 function getImageRows(): number {
@@ -98,13 +112,14 @@ class AnimatedCatLoader implements Component {
     lastImageRows = getImageRows();
     lastTui = this.tui;
     this.interval = setInterval(() => {
-      this.frame = (this.frame + 1) % CAT_LOADER_FRAMES.length;
+      this.frame = (this.frame + 1) % CAT_LOADER_FRAMES_BY_COLOR[color].length;
       this.tui.requestRender();
     }, CAT_LOADER_INTERVAL_MS);
   }
 
   render(width: number): string[] {
-    const frame = CAT_LOADER_FRAMES[this.frame] ?? CAT_LOADER_FRAMES[0];
+    const frames = CAT_LOADER_FRAMES_BY_COLOR[color];
+    const frame = frames[this.frame] ?? frames[0];
     const lines = new Image(
       frame,
       "image/png",

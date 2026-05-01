@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   clearAllKittyImages,
   configureCatLoader,
+  getCatLoaderColor,
   getCatLoaderEnabled,
   getCatLoaderSize,
   hideCatLoader,
@@ -10,6 +11,7 @@ import {
   previewCatLoader,
   resetInlineSpinner,
   setCatLoaderEnabled,
+  setCatLoaderColor,
   setCatLoaderSize,
   showCatLoader,
 } from "./cat-loader.ts";
@@ -19,6 +21,7 @@ import {
   getArgumentCompletions,
   MAX_SIZE_CELLS,
   MIN_SIZE_CELLS,
+  parseColor,
   parseSize,
 } from "./command.ts";
 import { loadSettings, saveSettings } from "./settings.ts";
@@ -65,6 +68,7 @@ export default function (pi: ExtensionAPI) {
         await saveSettings(ctx.cwd, {
           enabled: getCatLoaderEnabled(),
           sizeCells: getCatLoaderSize(),
+          color: getCatLoaderColor(),
         });
         hideCatLoader(ctx);
         resetInlineSpinner(ctx);
@@ -85,9 +89,31 @@ export default function (pi: ExtensionAPI) {
         await saveSettings(ctx.cwd, {
           enabled: getCatLoaderEnabled(),
           sizeCells: getCatLoaderSize(),
+          color: getCatLoaderColor(),
         });
         hideCatLoader(ctx);
         ctx.ui.notify(`Cat loader size set to ${getCatLoaderSize()} cells`, "info");
+        return;
+      }
+
+      if (command === "color") {
+        const color = parseColor(value ?? "");
+        if (color === undefined) {
+          ctx.ui.notify("Color must be classic, black, gray, white, or yellow", "error");
+          return;
+        }
+        setCatLoaderColor(color);
+        await saveSettings(ctx.cwd, {
+          enabled: getCatLoaderEnabled(),
+          sizeCells: getCatLoaderSize(),
+          color: getCatLoaderColor(),
+        });
+        if (isTmux()) {
+          ctx.ui.notify("Cat loader color saved; preview disabled in tmux", "info");
+          return;
+        }
+        previewCatLoader(ctx);
+        ctx.ui.notify(`Cat loader color set to ${getCatLoaderColor()}`, "info");
         return;
       }
 
@@ -110,6 +136,7 @@ export default function (pi: ExtensionAPI) {
       await saveSettings(ctx.cwd, {
         enabled: getCatLoaderEnabled(),
         sizeCells: getCatLoaderSize(),
+        color: getCatLoaderColor(),
       });
       ctx.ui.notify(
         isTmux() ? "Cat loader disabled in tmux; using regular spinner" : "Cat loader enabled",
