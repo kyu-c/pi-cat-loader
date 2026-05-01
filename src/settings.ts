@@ -10,6 +10,12 @@ export const CatLoaderSettingsSchema = Type.Object(
       default: true,
       description: "Whether the cat loader is enabled.",
     }),
+    sizeCells: Type.Integer({
+      default: 4,
+      minimum: 1,
+      maximum: 20,
+      description: "Width of the cat loader in terminal cells.",
+    }),
   },
   { additionalProperties: false },
 );

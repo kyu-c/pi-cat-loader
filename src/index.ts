@@ -21,22 +21,35 @@ interface WorkingUi {
 }
 
 const WIDGET_KEY = "cat-loader";
-const IMAGE_WIDTH_CELLS = 4;
 const IMAGE_LEFT_MARGIN_CELLS = 1;
 const SOURCE_DIMENSIONS = { widthPx: 112, heightPx: 112 };
+const MIN_SIZE_CELLS = 1;
+const MAX_SIZE_CELLS = 20;
+const SIZE_ALIASES = {
+  small: 2,
+  medium: 4,
+  large: 6,
+} as const;
+const SIZE_COMPLETIONS: AutocompleteItem[] = [
+  { value: "size small", label: "small", description: "2 cells wide" },
+  { value: "size medium", label: "medium", description: "4 cells wide" },
+  { value: "size large", label: "large", description: "6 cells wide" },
+];
 const COMMAND_ACTIONS: AutocompleteItem[] = [
   { value: "on", label: "on", description: "Enable cat loader" },
   { value: "off", label: "off", description: "Disable cat loader" },
+  { value: "size", label: "size", description: "Set cat loader width in cells" },
   { value: "preview", label: "preview", description: "Show cat loader for 5 seconds" },
   { value: "clear", label: "clear", description: "Clear terminal images" },
   { value: "help", label: "help", description: "Show usage" },
 ];
 const COMMAND_USAGE = [
-  "Usage: /cat-loader [on|off|preview|clear]",
+  "Usage: /cat-loader [on|off|preview|clear|size <cells|small|medium|large>]",
   "on      Enable cat loader",
   "off     Disable cat loader",
   "preview Show cat loader for 5 seconds",
   "clear   Clear terminal images",
+  "size    Set cat loader width in cells (1-20) or alias (small, medium, large)",
 ].join("\n");
 
 function isTmux(): boolean {
@@ -44,22 +57,33 @@ function isTmux(): boolean {
 }
 
 let enabled = true;
+let sizeCells = 4;
 let previewTimeout: NodeJS.Timeout | undefined;
 let lastImageId: number | undefined;
+let lastImageRows: number | undefined;
 let lastTui: TUI | undefined;
 let activeCatLoader: AnimatedCatLoader | undefined;
 
 function getImageRows(): number {
-  return calculateImageRows(SOURCE_DIMENSIONS, IMAGE_WIDTH_CELLS, getCellDimensions());
+  return calculateImageRows(SOURCE_DIMENSIONS, sizeCells, getCellDimensions());
+}
+
+function parseSize(value: string): number | undefined {
+  if (value in SIZE_ALIASES) return SIZE_ALIASES[value as keyof typeof SIZE_ALIASES];
+  const size = Number(value);
+  if (!Number.isInteger(size) || size < MIN_SIZE_CELLS || size > MAX_SIZE_CELLS) return undefined;
+  return size;
 }
 
 class DeleteCatLoader implements Component {
-  constructor(private readonly imageId: number) {}
+  constructor(
+    private readonly imageId: number,
+    private readonly rows: number,
+  ) {}
 
   render(): string[] {
-    const rows = getImageRows();
     return [
-      ...Array.from({ length: Math.max(0, rows - 1) }, () => ""),
+      ...Array.from({ length: Math.max(0, this.rows - 1) }, () => ""),
       deleteKittyImage(this.imageId),
     ];
   }
@@ -86,6 +110,7 @@ class AnimatedCatLoader implements Component {
     private readonly fallbackColor: (text: string) => string,
   ) {
     lastImageId = this.imageId;
+    lastImageRows = getImageRows();
     lastTui = this.tui;
     this.interval = setInterval(() => {
       this.frame = (this.frame + 1) % CAT_LOADER_FRAMES.length;
@@ -100,7 +125,7 @@ class AnimatedCatLoader implements Component {
       "image/png",
       { fallbackColor: this.fallbackColor },
       {
-        maxWidthCells: Math.min(IMAGE_WIDTH_CELLS, Math.max(1, width - 2)),
+        maxWidthCells: Math.min(sizeCells, Math.max(1, width - 2)),
         imageId: this.imageId,
       },
       SOURCE_DIMENSIONS,
@@ -175,7 +200,8 @@ function hideCatLoader(ctx: ExtensionContext): void {
 
   if (lastImageId !== undefined) {
     const imageId = lastImageId;
-    ctx.ui.setWidget(WIDGET_KEY, () => new DeleteCatLoader(imageId), {
+    const rows = lastImageRows ?? getImageRows();
+    ctx.ui.setWidget(WIDGET_KEY, () => new DeleteCatLoader(imageId, rows), {
       placement: "aboveEditor",
     });
     setTimeout(() => {
@@ -191,7 +217,9 @@ function hideCatLoader(ctx: ExtensionContext): void {
 
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
-    enabled = (await loadSettings(ctx.cwd)).enabled;
+    const settings = await loadSettings(ctx.cwd);
+    enabled = settings.enabled;
+    sizeCells = settings.sizeCells;
     resetInlineSpinner(ctx);
     if (isTmux()) hideCatLoader(ctx);
   });
@@ -209,9 +237,19 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("cat-loader", {
-    description: "Toggle PNG-frame cat loader animation. Args: on, off, preview, clear, help.",
+    description:
+      "Toggle PNG-frame cat loader animation. Args: on, off, preview, clear, size, help.",
     getArgumentCompletions: (prefix: string) => {
       const normalizedPrefix = prefix.trimStart().toLowerCase();
+      if (normalizedPrefix.startsWith("size ")) {
+        const sizePrefix = normalizedPrefix.slice("size ".length).trimStart();
+        const completions = SIZE_COMPLETIONS.filter(
+          (size) =>
+            size.value.slice("size ".length).startsWith(sizePrefix) ||
+            size.description?.startsWith(sizePrefix),
+        );
+        return completions.length > 0 ? completions : null;
+      }
       const completions = COMMAND_ACTIONS.filter((action) =>
         action.value.startsWith(normalizedPrefix),
       );
@@ -219,6 +257,7 @@ export default function (pi: ExtensionAPI) {
     },
     handler: async (args, ctx) => {
       const action = args.trim().toLowerCase();
+      const [command, value] = action.split(/\s+/, 2);
 
       if (action === "help" || action === "?") {
         ctx.ui.notify(COMMAND_USAGE, "info");
@@ -233,10 +272,26 @@ export default function (pi: ExtensionAPI) {
 
       if (action === "off" || action === "reset") {
         enabled = false;
-        await saveSettings(ctx.cwd, { enabled });
+        await saveSettings(ctx.cwd, { enabled, sizeCells });
         hideCatLoader(ctx);
         resetInlineSpinner(ctx);
         ctx.ui.notify("Cat loader disabled", "info");
+        return;
+      }
+
+      if (command === "size") {
+        const size = parseSize(value ?? "");
+        if (size === undefined) {
+          ctx.ui.notify(
+            `Size must be small, medium, large, or an integer from ${MIN_SIZE_CELLS} to ${MAX_SIZE_CELLS}`,
+            "error",
+          );
+          return;
+        }
+        sizeCells = size;
+        await saveSettings(ctx.cwd, { enabled, sizeCells });
+        hideCatLoader(ctx);
+        ctx.ui.notify(`Cat loader size set to ${sizeCells} cells`, "info");
         return;
       }
 
@@ -257,7 +312,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       enabled = true;
-      await saveSettings(ctx.cwd, { enabled });
+      await saveSettings(ctx.cwd, { enabled, sizeCells });
       ctx.ui.notify(
         isTmux() ? "Cat loader disabled in tmux; using regular spinner" : "Cat loader enabled",
         "info",
