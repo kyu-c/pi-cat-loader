@@ -1,0 +1,49 @@
+{
+  "name": "@kyuc/pi-cat-loader",
+  "version": "0.1.0",
+  "description": "Animated cat loading indicator for pi.",
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kyu-c/pi-cat-loader.git"
+  },
+  "files": [
+    "src",
+    "LICENSE"
+  ],
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "pack:dry": "pnpm pack --dry-run"
+  },
+  "dependencies": {
+    "typebox": "^1.1.37"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "^0.71.0",
+    "@mariozechner/pi-tui": "^0.71.0",
+    "@types/node": "^24.3.0",
+    "oxfmt": "^0.47.0",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.5"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  }
+}
