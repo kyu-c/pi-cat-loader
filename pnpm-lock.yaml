@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      typebox:
-        specifier: ^1.1.37
-        version: 1.1.37
     devDependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.71.0
@@ -24,6 +20,9 @@ importers:
       oxfmt:
         specifier: ^0.47.0
         version: 0.47.0
+      typebox:
+        specifier: ^1.1.37
+        version: 1.1.37
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
