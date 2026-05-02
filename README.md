@@ -6,6 +6,17 @@
 
 Animated rolling cat loader for [pi](https://pi.dev). Replaces pi's inline spinner with cat animation and adds `/cat-loader` command controls.
 
+## Compatibility
+
+This extension requires a terminal with inline image support. Known terminals that work include:
+
+- Ghostty
+- Kitty
+- WezTerm
+- iTerm2
+
+This extension does not work inside tmux. When tmux is detected, the cat loader is automatically disabled and pi falls back to its regular spinner.
+
 ## Installation
 
 ```bash
