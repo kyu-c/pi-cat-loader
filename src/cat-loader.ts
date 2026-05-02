@@ -1,9 +1,10 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
   allocateImageId,
-  calculateImageRows,
   deleteAllKittyImages,
   deleteKittyImage,
+  encodeKitty,
+  getCapabilities,
   getCellDimensions,
   Image,
   type Component,
@@ -72,8 +73,15 @@ export function setCatLoaderColor(value: CatLoaderColor): void {
   color = value;
 }
 
+function getSquareImageRows(widthCells: number): number {
+  const cellDimensions = getCellDimensions();
+  const targetWidthPx = widthCells * cellDimensions.widthPx;
+  const targetHeightPx = targetWidthPx * (SOURCE_DIMENSIONS.heightPx / SOURCE_DIMENSIONS.widthPx);
+  return Math.max(1, Math.floor(targetHeightPx / cellDimensions.heightPx));
+}
+
 function getImageRows(): number {
-  return calculateImageRows(SOURCE_DIMENSIONS, sizeCells, getCellDimensions());
+  return getSquareImageRows(sizeCells);
 }
 
 class DeleteCatLoader implements Component {
@@ -122,16 +130,28 @@ class AnimatedCatLoader implements Component {
   render(width: number): string[] {
     const frames = CAT_LOADER_FRAMES_BY_COLOR[color];
     const frame = frames[this.frame] ?? frames[0];
-    const lines = new Image(
-      frame,
-      "image/png",
-      { fallbackColor: this.fallbackColor },
-      {
-        maxWidthCells: Math.min(sizeCells, Math.max(1, width - 2)),
-        imageId: this.imageId,
-      },
-      SOURCE_DIMENSIONS,
-    ).render(width);
+    const maxWidthCells = Math.min(sizeCells, Math.max(1, width - 2));
+    const rows = getSquareImageRows(maxWidthCells);
+    const lines =
+      getCapabilities().images === "kitty"
+        ? [
+            ...Array.from({ length: Math.max(0, rows - 1) }, () => ""),
+            `${rows > 1 ? `\x1b[${rows - 1}A` : ""}${encodeKitty(frame, {
+              columns: maxWidthCells,
+              rows,
+              imageId: this.imageId,
+            })}`,
+          ]
+        : new Image(
+            frame,
+            "image/png",
+            { fallbackColor: this.fallbackColor },
+            {
+              maxWidthCells,
+              imageId: this.imageId,
+            },
+            SOURCE_DIMENSIONS,
+          ).render(width);
 
     const lastLine = lines[lines.length - 1];
     if (lastLine?.includes("\x1b_G")) {
