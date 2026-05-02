@@ -23,6 +23,8 @@ interface WorkingUi {
   setWorkingVisible?: (visible: boolean) => void;
 }
 
+type ExtensionUi = ExtensionContext["ui"];
+
 const WIDGET_KEY = "cat-loader";
 const IMAGE_LEFT_MARGIN_CELLS = 1;
 const SOURCE_DIMENSIONS = { widthPx: 112, heightPx: 112 };
@@ -146,12 +148,12 @@ class AnimatedCatLoader implements Component {
   }
 }
 
-function getWorkingUi(ctx: ExtensionContext): WorkingUi {
-  return ctx.ui as unknown as WorkingUi;
+function getWorkingUi(ui: ExtensionUi): WorkingUi {
+  return ui as unknown as WorkingUi;
 }
 
 export function resetInlineSpinner(ctx: ExtensionContext): void {
-  const ui = getWorkingUi(ctx);
+  const ui = getWorkingUi(ctx.ui);
   ui.setWorkingMessage?.();
   ui.setWorkingIndicator?.();
 }
@@ -161,25 +163,59 @@ function disposeActiveCatLoader(): void {
   activeCatLoader = undefined;
 }
 
+function hideCatLoaderWithUi(ui: ExtensionUi): void {
+  if (previewTimeout) {
+    clearTimeout(previewTimeout);
+    previewTimeout = undefined;
+  }
+  disposeActiveCatLoader();
+
+  if (lastImageId !== undefined) {
+    const imageId = lastImageId;
+    const rows = lastImageRows ?? getImageRows();
+    ui.setWidget(WIDGET_KEY, () => new DeleteCatLoader(imageId, rows), {
+      placement: "aboveEditor",
+    });
+    setTimeout(() => {
+      try {
+        ui.setWidget(WIDGET_KEY, undefined);
+        lastTui?.requestRender(true);
+      } catch {
+        // UI may be stale after session reload.
+      }
+    }, 100);
+  } else {
+    ui.setWidget(WIDGET_KEY, undefined);
+    lastTui?.requestRender(true);
+  }
+  getWorkingUi(ui).setWorkingVisible?.(true);
+}
+
 export function clearAllKittyImages(ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
 
-  ctx.ui.setWidget(WIDGET_KEY, () => new DeleteAllCatLoaders(), {
+  const ui = ctx.ui;
+  ui.setWidget(WIDGET_KEY, () => new DeleteAllCatLoaders(), {
     placement: "aboveEditor",
   });
   setTimeout(() => {
-    ctx.ui.setWidget(WIDGET_KEY, undefined);
+    try {
+      ui.setWidget(WIDGET_KEY, undefined);
+    } catch {
+      // UI may be stale after session reload.
+    }
   }, 100);
 }
 
 export function showCatLoader(ctx: ExtensionContext, force = false): void {
   if (!ctx.hasUI || (!enabled && !force) || isTmux()) return;
 
-  const ui = getWorkingUi(ctx);
-  ui.setWorkingVisible?.(false);
+  const ui = ctx.ui;
+  const workingUi = getWorkingUi(ui);
+  workingUi.setWorkingVisible?.(false);
   disposeActiveCatLoader();
 
-  ctx.ui.setWidget(
+  ui.setWidget(
     WIDGET_KEY,
     (tui, theme) => {
       activeCatLoader = new AnimatedCatLoader(tui, (text: string) => theme.fg("muted", text));
@@ -192,30 +228,19 @@ export function showCatLoader(ctx: ExtensionContext, force = false): void {
 export function hideCatLoader(ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
 
-  if (previewTimeout) {
-    clearTimeout(previewTimeout);
-    previewTimeout = undefined;
-  }
-  disposeActiveCatLoader();
-
-  if (lastImageId !== undefined) {
-    const imageId = lastImageId;
-    const rows = lastImageRows ?? getImageRows();
-    ctx.ui.setWidget(WIDGET_KEY, () => new DeleteCatLoader(imageId, rows), {
-      placement: "aboveEditor",
-    });
-    setTimeout(() => {
-      ctx.ui.setWidget(WIDGET_KEY, undefined);
-      lastTui?.requestRender(true);
-    }, 100);
-  } else {
-    ctx.ui.setWidget(WIDGET_KEY, undefined);
-    lastTui?.requestRender(true);
-  }
-  getWorkingUi(ctx).setWorkingVisible?.(true);
+  hideCatLoaderWithUi(ctx.ui);
 }
 
 export function previewCatLoader(ctx: ExtensionContext): void {
   showCatLoader(ctx, true);
-  previewTimeout = setTimeout(() => hideCatLoader(ctx), 5000);
+  if (!ctx.hasUI) return;
+
+  const ui = ctx.ui;
+  previewTimeout = setTimeout(() => {
+    try {
+      hideCatLoaderWithUi(ui);
+    } catch {
+      // UI may be stale after session reload.
+    }
+  }, 5000);
 }
