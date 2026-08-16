@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   allocateImageId,
   deleteAllKittyImages,
@@ -9,7 +9,7 @@ import {
   Image,
   type Component,
   type TUI,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 
 import {
   CAT_LOADER_FRAMES_BY_COLOR,
@@ -17,12 +17,6 @@ import {
   type CatLoaderColor,
 } from "./cat-frames.ts";
 import type { CatLoaderSettings } from "./settings.ts";
-
-interface WorkingUi {
-  setWorkingIndicator?: (options?: { frames?: string[]; intervalMs?: number }) => void;
-  setWorkingMessage?: (message?: string) => void;
-  setWorkingVisible?: (visible: boolean) => void;
-}
 
 type ExtensionUi = ExtensionContext["ui"];
 
@@ -35,7 +29,6 @@ let sizeCells = 4;
 let color: CatLoaderColor = "classic";
 let previewTimeout: NodeJS.Timeout | undefined;
 let lastImageId: number | undefined;
-let lastImageRows: number | undefined;
 let lastTui: TUI | undefined;
 let activeCatLoader: AnimatedCatLoader | undefined;
 
@@ -84,22 +77,6 @@ function getImageRows(): number {
   return getSquareImageRows(sizeCells);
 }
 
-class DeleteCatLoader implements Component {
-  constructor(
-    private readonly imageId: number,
-    private readonly rows: number,
-  ) {}
-
-  render(): string[] {
-    return [
-      ...Array.from({ length: Math.max(0, this.rows - 1) }, () => ""),
-      deleteKittyImage(this.imageId),
-    ];
-  }
-
-  invalidate(): void {}
-}
-
 class DeleteAllCatLoaders implements Component {
   render(): string[] {
     const rows = getImageRows();
@@ -118,8 +95,6 @@ class AnimatedCatLoader implements Component {
     private readonly tui: TUI,
     private readonly fallbackColor: (text: string) => string,
   ) {
-    lastImageId = this.imageId;
-    lastImageRows = getImageRows();
     lastTui = this.tui;
     this.interval = setInterval(() => {
       this.frame = (this.frame + 1) % CAT_LOADER_FRAMES_BY_COLOR[color].length;
@@ -155,6 +130,7 @@ class AnimatedCatLoader implements Component {
 
     const lastLine = lines[lines.length - 1];
     if (lastLine?.includes("\x1b_G")) {
+      lastImageId = this.imageId;
       lines[lines.length - 1] = deleteKittyImage(this.imageId) + lastLine;
     }
 
@@ -168,14 +144,9 @@ class AnimatedCatLoader implements Component {
   }
 }
 
-function getWorkingUi(ui: ExtensionUi): WorkingUi {
-  return ui as unknown as WorkingUi;
-}
-
 export function resetInlineSpinner(ctx: ExtensionContext): void {
-  const ui = getWorkingUi(ctx.ui);
-  ui.setWorkingMessage?.();
-  ui.setWorkingIndicator?.();
+  ctx.ui.setWorkingMessage();
+  ctx.ui.setWorkingIndicator();
 }
 
 function disposeActiveCatLoader(): void {
@@ -190,29 +161,18 @@ function hideCatLoaderWithUi(ui: ExtensionUi): void {
   }
   disposeActiveCatLoader();
 
+  ui.setWidget(WIDGET_KEY, undefined);
   if (lastImageId !== undefined) {
-    const imageId = lastImageId;
-    const rows = lastImageRows ?? getImageRows();
-    ui.setWidget(WIDGET_KEY, () => new DeleteCatLoader(imageId, rows), {
-      placement: "aboveEditor",
-    });
-    setTimeout(() => {
-      try {
-        ui.setWidget(WIDGET_KEY, undefined);
-        lastTui?.requestRender(true);
-      } catch {
-        // UI may be stale after session reload.
-      }
-    }, 100);
-  } else {
-    ui.setWidget(WIDGET_KEY, undefined);
-    lastTui?.requestRender(true);
+    lastTui?.terminal.write(deleteKittyImage(lastImageId));
+    lastImageId = undefined;
   }
-  getWorkingUi(ui).setWorkingVisible?.(true);
+  lastTui?.requestRender(true);
+  lastTui = undefined;
+  ui.setWorkingVisible(true);
 }
 
 export function clearAllKittyImages(ctx: ExtensionContext): void {
-  if (!ctx.hasUI) return;
+  if (ctx.mode !== "tui") return;
 
   const ui = ctx.ui;
   ui.setWidget(WIDGET_KEY, () => new DeleteAllCatLoaders(), {
@@ -228,11 +188,10 @@ export function clearAllKittyImages(ctx: ExtensionContext): void {
 }
 
 export function showCatLoader(ctx: ExtensionContext, force = false): void {
-  if (!ctx.hasUI || (!enabled && !force) || isTmux()) return;
+  if (ctx.mode !== "tui" || (!enabled && !force) || isTmux()) return;
 
   const ui = ctx.ui;
-  const workingUi = getWorkingUi(ui);
-  workingUi.setWorkingVisible?.(false);
+  ui.setWorkingVisible(false);
   disposeActiveCatLoader();
 
   ui.setWidget(
@@ -246,14 +205,14 @@ export function showCatLoader(ctx: ExtensionContext, force = false): void {
 }
 
 export function hideCatLoader(ctx: ExtensionContext): void {
-  if (!ctx.hasUI) return;
+  if (ctx.mode !== "tui") return;
 
   hideCatLoaderWithUi(ctx.ui);
 }
 
 export function previewCatLoader(ctx: ExtensionContext): void {
   showCatLoader(ctx, true);
-  if (!ctx.hasUI) return;
+  if (ctx.mode !== "tui") return;
 
   const ui = ctx.ui;
   previewTimeout = setTimeout(() => {

@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import {
   clearAllKittyImages,
@@ -28,7 +28,9 @@ import { loadSettings, saveSettings } from "./settings.ts";
 
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
-    configureCatLoader(await loadSettings(ctx.cwd));
+    configureCatLoader(
+      await loadSettings(ctx.cwd, { includeProjectSettings: ctx.isProjectTrusted() }),
+    );
     resetInlineSpinner(ctx);
     if (isTmux()) hideCatLoader(ctx);
   });
@@ -37,7 +39,7 @@ export default function (pi: ExtensionAPI) {
     showCatLoader(ctx);
   });
 
-  pi.on("agent_end", async (_event, ctx) => {
+  pi.on("agent_settled", async (_event, ctx) => {
     hideCatLoader(ctx);
   });
 

@@ -1,17 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 let home: string;
-
-vi.mock("node:os", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:os")>();
-  return {
-    ...actual,
-    homedir: () => home,
-  };
-});
 
 const { loadSettings, saveSettings } = await import("./settings.ts");
 
@@ -27,6 +20,15 @@ describe("settings", () => {
   beforeEach(async () => {
     home = await makeTempDir("pi-cat-loader-home");
     cwd = await makeTempDir("pi-cat-loader-cwd");
+    process.env.PI_CODING_AGENT_DIR = join(home, ".pi", "agent");
+  });
+
+  afterEach(() => {
+    if (originalAgentDir === undefined) {
+      delete process.env.PI_CODING_AGENT_DIR;
+    } else {
+      process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+    }
   });
 
   it("defaults enabled when no settings exist", async () => {
@@ -64,6 +66,25 @@ describe("settings", () => {
 
     await expect(loadSettings(cwd)).resolves.toEqual({
       enabled: true,
+      sizeCells: 4,
+      color: "classic",
+    });
+  });
+
+  it("ignores project settings when they are not trusted", async () => {
+    await mkdir(join(home, ".pi", "agent"), { recursive: true });
+    await writeFile(
+      join(home, ".pi", "agent", "settings.json"),
+      JSON.stringify({ catLoader: { enabled: false } }),
+    );
+    await mkdir(join(cwd, ".pi"), { recursive: true });
+    await writeFile(
+      join(cwd, ".pi", "settings.json"),
+      JSON.stringify({ catLoader: { enabled: true } }),
+    );
+
+    await expect(loadSettings(cwd, { includeProjectSettings: false })).resolves.toEqual({
+      enabled: false,
       sizeCells: 4,
       color: "classic",
     });
