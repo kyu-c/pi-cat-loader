@@ -24,8 +24,8 @@
     "pack:dry": "pnpm pack --dry-run"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.71.0",
-    "@mariozechner/pi-tui": "^0.71.0",
+    "@earendil-works/pi-coding-agent": "^0.84.2",
+    "@earendil-works/pi-tui": "^0.84.2",
     "@types/node": "^24.3.0",
     "oxfmt": "^0.47.0",
     "typebox": "^1.1.37",
@@ -33,12 +33,12 @@
     "vitest": "^4.1.5"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
   "engines": {
-    "node": ">=20.6.0"
+    "node": ">=22.19.0"
   },
   "packageManager": "pnpm@10.32.1",
   "pi": {

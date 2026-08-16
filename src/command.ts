@@ -1,4 +1,4 @@
-import type { AutocompleteItem } from "@mariozechner/pi-tui";
+import type { AutocompleteItem } from "@earendil-works/pi-tui";
 
 import { CAT_LOADER_COLORS, type CatLoaderColor } from "./cat-frames.ts";
 

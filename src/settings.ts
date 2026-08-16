@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { Value } from "typebox/value";
 
@@ -36,11 +36,11 @@ const SETTINGS_KEY = "catLoader";
 export const DEFAULT_SETTINGS: CatLoaderSettings = Value.Create(CatLoaderSettingsSchema);
 
 function getGlobalSettingsPath(): string {
-  return join(homedir(), ".pi", "agent", "settings.json");
+  return join(getAgentDir(), "settings.json");
 }
 
 function getProjectSettingsPath(cwd: string): string {
-  return join(cwd, ".pi", "settings.json");
+  return join(cwd, CONFIG_DIR_NAME, "settings.json");
 }
 
 function parseSettings(value: unknown): CatLoaderSettings {
@@ -64,9 +64,15 @@ async function readSettingsFile(path: string): Promise<Record<string, unknown>> 
   }
 }
 
-export async function loadSettings(cwd: string): Promise<CatLoaderSettings> {
+export async function loadSettings(
+  cwd: string,
+  options: { includeProjectSettings?: boolean } = {},
+): Promise<CatLoaderSettings> {
   const globalSettings = await readSettingsFile(getGlobalSettingsPath());
-  const projectSettings = await readSettingsFile(getProjectSettingsPath(cwd));
+  const projectSettings =
+    options.includeProjectSettings === false
+      ? {}
+      : await readSettingsFile(getProjectSettingsPath(cwd));
   const rawSettings = {
     ...(isObject(globalSettings[SETTINGS_KEY]) ? globalSettings[SETTINGS_KEY] : {}),
     ...(isObject(projectSettings[SETTINGS_KEY]) ? projectSettings[SETTINGS_KEY] : {}),
