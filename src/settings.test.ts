@@ -35,6 +35,7 @@ describe("settings", () => {
     await expect(loadSettings(cwd)).resolves.toEqual({
       enabled: true,
       sizeCells: 4,
+      framesPerSecond: 20,
       color: "classic",
     });
   });
@@ -44,11 +45,16 @@ describe("settings", () => {
     await mkdir(join(home, ".pi", "agent"), { recursive: true });
     await writeFile(globalSettingsPath, JSON.stringify({ theme: "dark" }));
 
-    await saveSettings(cwd, { enabled: false, sizeCells: 8, color: "black" });
+    await saveSettings(cwd, {
+      enabled: false,
+      sizeCells: 8,
+      framesPerSecond: 20,
+      color: "black",
+    });
 
     await expect(readFile(globalSettingsPath, "utf8").then(JSON.parse)).resolves.toEqual({
       theme: "dark",
-      catLoader: { enabled: false, sizeCells: 8, color: "black" },
+      catLoader: { enabled: false, sizeCells: 8, framesPerSecond: 20, color: "black" },
     });
   });
 
@@ -67,6 +73,7 @@ describe("settings", () => {
     await expect(loadSettings(cwd)).resolves.toEqual({
       enabled: true,
       sizeCells: 4,
+      framesPerSecond: 20,
       color: "classic",
     });
   });
@@ -86,6 +93,7 @@ describe("settings", () => {
     await expect(loadSettings(cwd, { includeProjectSettings: false })).resolves.toEqual({
       enabled: false,
       sizeCells: 4,
+      framesPerSecond: 20,
       color: "classic",
     });
   });

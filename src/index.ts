@@ -5,6 +5,7 @@ import {
   configureCatLoader,
   getCatLoaderColor,
   getCatLoaderEnabled,
+  getCatLoaderFramesPerSecond,
   getCatLoaderSize,
   hideCatLoader,
   isTmux,
@@ -12,6 +13,7 @@ import {
   resetInlineSpinner,
   setCatLoaderEnabled,
   setCatLoaderColor,
+  setCatLoaderFramesPerSecond,
   setCatLoaderSize,
   showCatLoader,
 } from "./cat-loader.ts";
@@ -19,12 +21,24 @@ import {
   COMMAND_DESCRIPTION,
   COMMAND_USAGE,
   getArgumentCompletions,
+  MAX_FRAMES_PER_SECOND,
   MAX_SIZE_CELLS,
+  MIN_FRAMES_PER_SECOND,
   MIN_SIZE_CELLS,
   parseColor,
   parseSize,
+  parseSpeed,
 } from "./command.ts";
 import { loadSettings, saveSettings } from "./settings.ts";
+
+function getCurrentSettings() {
+  return {
+    enabled: getCatLoaderEnabled(),
+    sizeCells: getCatLoaderSize(),
+    framesPerSecond: getCatLoaderFramesPerSecond(),
+    color: getCatLoaderColor(),
+  };
+}
 
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
@@ -67,11 +81,7 @@ export default function (pi: ExtensionAPI) {
 
       if (action === "off" || action === "reset") {
         setCatLoaderEnabled(false);
-        await saveSettings(ctx.cwd, {
-          enabled: getCatLoaderEnabled(),
-          sizeCells: getCatLoaderSize(),
-          color: getCatLoaderColor(),
-        });
+        await saveSettings(ctx.cwd, getCurrentSettings());
         hideCatLoader(ctx);
         resetInlineSpinner(ctx);
         ctx.ui.notify("Cat loader disabled", "info");
@@ -88,13 +98,25 @@ export default function (pi: ExtensionAPI) {
           return;
         }
         setCatLoaderSize(size);
-        await saveSettings(ctx.cwd, {
-          enabled: getCatLoaderEnabled(),
-          sizeCells: getCatLoaderSize(),
-          color: getCatLoaderColor(),
-        });
+        await saveSettings(ctx.cwd, getCurrentSettings());
         hideCatLoader(ctx);
         ctx.ui.notify(`Cat loader size set to ${getCatLoaderSize()} cells`, "info");
+        return;
+      }
+
+      if (command === "speed") {
+        const speed = parseSpeed(value ?? "");
+        if (speed === undefined) {
+          ctx.ui.notify(
+            `Speed must be slow, normal, fast, or an integer from ${MIN_FRAMES_PER_SECOND} to ${MAX_FRAMES_PER_SECOND} FPS`,
+            "error",
+          );
+          return;
+        }
+        setCatLoaderFramesPerSecond(speed);
+        await saveSettings(ctx.cwd, getCurrentSettings());
+        hideCatLoader(ctx);
+        ctx.ui.notify(`Cat loader speed set to ${getCatLoaderFramesPerSecond()} FPS`, "info");
         return;
       }
 
@@ -105,11 +127,7 @@ export default function (pi: ExtensionAPI) {
           return;
         }
         setCatLoaderColor(color);
-        await saveSettings(ctx.cwd, {
-          enabled: getCatLoaderEnabled(),
-          sizeCells: getCatLoaderSize(),
-          color: getCatLoaderColor(),
-        });
+        await saveSettings(ctx.cwd, getCurrentSettings());
         if (isTmux()) {
           ctx.ui.notify("Cat loader color saved; preview disabled in tmux", "info");
           return;
@@ -135,11 +153,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       setCatLoaderEnabled(true);
-      await saveSettings(ctx.cwd, {
-        enabled: getCatLoaderEnabled(),
-        sizeCells: getCatLoaderSize(),
-        color: getCatLoaderColor(),
-      });
+      await saveSettings(ctx.cwd, getCurrentSettings());
       ctx.ui.notify(
         isTmux() ? "Cat loader disabled in tmux; using regular spinner" : "Cat loader enabled",
         "info",

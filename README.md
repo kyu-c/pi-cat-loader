@@ -33,6 +33,7 @@ pi install npm:@kyuc/pi-cat-loader
 /cat-loader preview               Show cat loader for 5 seconds
 /cat-loader clear                 Clear terminal images
 /cat-loader size <value>          Set width (small, medium, large, or 1-20)
+/cat-loader speed <value>         Set frame rate (slow, normal, fast, or 1-60 FPS)
 /cat-loader color <color>         Set color (classic, black, gray, white, yellow)
 /cat-loader help                  Show help
 ```
@@ -46,9 +47,10 @@ Settings are saved under pi's `catLoader` config key. You can change these throu
   "catLoader": {
     "enabled": true,
     "sizeCells": 4,
+    "framesPerSecond": 20,
     "color": "classic"
   }
 }
 ```
 
-`sizeCells` must be `1-20`. `color` must be `classic`, `black`, `gray`, `white`, or `yellow`.
+`sizeCells` must be `1-20`. `framesPerSecond` must be `1-60`. `color` must be `classic`, `black`, `gray`, `white`, or `yellow`.
