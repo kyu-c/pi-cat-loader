@@ -11,11 +11,7 @@ import {
   type TUI,
 } from "@earendil-works/pi-tui";
 
-import {
-  CAT_LOADER_FRAMES_BY_COLOR,
-  CAT_LOADER_INTERVAL_MS,
-  type CatLoaderColor,
-} from "./cat-frames.ts";
+import { CAT_LOADER_FRAMES_BY_COLOR, type CatLoaderColor } from "./cat-frames.ts";
 import type { CatLoaderSettings } from "./settings.ts";
 
 type ExtensionUi = ExtensionContext["ui"];
@@ -26,6 +22,7 @@ const SOURCE_DIMENSIONS = { widthPx: 112, heightPx: 112 };
 
 let enabled = true;
 let sizeCells = 4;
+let framesPerSecond = 20;
 let color: CatLoaderColor = "classic";
 let previewTimeout: NodeJS.Timeout | undefined;
 let lastImageId: number | undefined;
@@ -39,6 +36,7 @@ export function isTmux(): boolean {
 export function configureCatLoader(settings: CatLoaderSettings): void {
   enabled = settings.enabled;
   sizeCells = settings.sizeCells;
+  framesPerSecond = settings.framesPerSecond;
   color = settings.color;
 }
 
@@ -56,6 +54,15 @@ export function getCatLoaderSize(): number {
 
 export function setCatLoaderSize(value: number): void {
   sizeCells = value;
+}
+
+export function getCatLoaderFramesPerSecond(): number {
+  return framesPerSecond;
+}
+
+export function setCatLoaderFramesPerSecond(value: number): void {
+  framesPerSecond = value;
+  disposeActiveCatLoader();
 }
 
 export function getCatLoaderColor(): CatLoaderColor {
@@ -99,7 +106,7 @@ class AnimatedCatLoader implements Component {
     this.interval = setInterval(() => {
       this.frame = (this.frame + 1) % CAT_LOADER_FRAMES_BY_COLOR[color].length;
       this.tui.requestRender();
-    }, CAT_LOADER_INTERVAL_MS);
+    }, 1000 / framesPerSecond);
   }
 
   render(width: number): string[] {

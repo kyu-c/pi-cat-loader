@@ -16,6 +16,12 @@ export const CatLoaderSettingsSchema = Type.Object(
       maximum: 20,
       description: "Width of the cat loader in terminal cells.",
     }),
+    framesPerSecond: Type.Integer({
+      default: 20,
+      minimum: 1,
+      maximum: 60,
+      description: "Animation frames rendered per second.",
+    }),
     color: Type.Union(
       [
         Type.Literal("classic"),
