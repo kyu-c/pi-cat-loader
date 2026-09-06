@@ -6,7 +6,7 @@
 
 Animated rolling cat loader for [pi](https://pi.dev). Replaces pi's inline spinner with cat animation and adds `/cat-loader` command controls.
 
-https://github.com/user-attachments/assets/551ab2b8-1ea3-44ce-b1fc-ba051c84df0c
+https://github.com/user-attachments/assets/b2ad6d9b-f83b-4dcc-8f00-bff028aa1993
 
 ## Compatibility
 
