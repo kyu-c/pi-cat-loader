@@ -4,6 +4,7 @@ import {
   deleteAllKittyImages,
   deleteKittyImage,
   encodeKitty,
+  encodeITerm2,
   getCapabilities,
   getCellDimensions,
   Image,
@@ -11,7 +12,7 @@ import {
   type TUI,
 } from "@earendil-works/pi-tui";
 
-import { CAT_LOADER_FRAMES_BY_COLOR, type CatLoaderColor } from "./cat-frames.ts";
+import { CAT_LOADER_FRAMES_BY_COLOR, MAX_CATS, type CatLoaderColor } from "./cat-frames.ts";
 import type { CatLoaderSettings } from "./settings.ts";
 
 type ExtensionUi = ExtensionContext["ui"];
@@ -23,9 +24,8 @@ const SOURCE_DIMENSIONS = { widthPx: 112, heightPx: 112 };
 let enabled = true;
 let sizeCells = 4;
 let framesPerSecond = 20;
-let color: CatLoaderColor = "classic";
+let colors: CatLoaderColor[] = ["classic"];
 let previewTimeout: NodeJS.Timeout | undefined;
-let lastImageId: number | undefined;
 let lastTui: TUI | undefined;
 let activeCatLoader: AnimatedCatLoader | undefined;
 
@@ -37,7 +37,7 @@ export function configureCatLoader(settings: CatLoaderSettings): void {
   enabled = settings.enabled;
   sizeCells = settings.sizeCells;
   framesPerSecond = settings.framesPerSecond;
-  color = settings.color;
+  colors = [...settings.colors];
 }
 
 export function getCatLoaderEnabled(): boolean {
@@ -65,12 +65,12 @@ export function setCatLoaderFramesPerSecond(value: number): void {
   disposeActiveCatLoader();
 }
 
-export function getCatLoaderColor(): CatLoaderColor {
-  return color;
+export function getCatLoaderColors(): CatLoaderColor[] {
+  return [...colors];
 }
 
-export function setCatLoaderColor(value: CatLoaderColor): void {
-  color = value;
+export function setCatLoaderColors(value: CatLoaderColor[]): void {
+  colors = [...value];
 }
 
 function getSquareImageRows(widthCells: number): number {
@@ -95,7 +95,8 @@ class DeleteAllCatLoaders implements Component {
 
 class AnimatedCatLoader implements Component {
   private frame = 0;
-  private readonly imageId = allocateImageId();
+  private readonly imageIds = Array.from({ length: MAX_CATS }, () => allocateImageId());
+  private renderedImageIds: number[] = [];
   private readonly interval: NodeJS.Timeout;
 
   constructor(
@@ -104,50 +105,63 @@ class AnimatedCatLoader implements Component {
   ) {
     lastTui = this.tui;
     this.interval = setInterval(() => {
-      this.frame = (this.frame + 1) % CAT_LOADER_FRAMES_BY_COLOR[color].length;
+      this.frame += 1;
       this.tui.requestRender();
     }, 1000 / framesPerSecond);
   }
 
   render(width: number): string[] {
-    const frames = CAT_LOADER_FRAMES_BY_COLOR[color];
-    const frame = frames[this.frame] ?? frames[0];
-    const maxWidthCells = Math.min(sizeCells, Math.max(1, width - 2));
-    const rows = getSquareImageRows(maxWidthCells);
-    const lines =
-      getCapabilities().images === "kitty"
-        ? [
-            ...Array.from({ length: Math.max(0, rows - 1) }, () => ""),
-            `${rows > 1 ? `\x1b[${rows - 1}A` : ""}${encodeKitty(frame, {
-              columns: maxWidthCells,
-              rows,
-              imageId: this.imageId,
-            })}`,
-          ]
-        : new Image(
-            frame,
-            "image/png",
-            { fallbackColor: this.fallbackColor },
-            {
-              maxWidthCells,
-              imageId: this.imageId,
-            },
-            SOURCE_DIMENSIONS,
-          ).render(width);
+    // Keep one cell at either edge. Only draw whole cats; never shrink or wrap.
+    const count = Math.min(colors.length, Math.max(0, Math.floor((width - 1) / (sizeCells + 1))));
+    const cleanup = this.renderedImageIds.map(deleteKittyImage).join("");
+    this.renderedImageIds = [];
+    if (count === 0) return [cleanup];
 
-    const lastLine = lines[lines.length - 1];
-    if (lastLine?.includes("\x1b_G")) {
-      lastImageId = this.imageId;
-      lines[lines.length - 1] = deleteKittyImage(this.imageId) + lastLine;
+    const protocol = getCapabilities().images;
+    if (!protocol) {
+      const frames = CAT_LOADER_FRAMES_BY_COLOR[colors[0]];
+      return new Image(
+        frames[this.frame % frames.length],
+        "image/png",
+        { fallbackColor: this.fallbackColor },
+        { maxWidthCells: sizeCells },
+        SOURCE_DIMENSIONS,
+      ).render(width);
     }
 
-    return lines.map((line) => " ".repeat(IMAGE_LEFT_MARGIN_CELLS) + line);
+    const cellDimensions = getCellDimensions();
+    const rows =
+      protocol === "kitty"
+        ? getSquareImageRows(sizeCells)
+        : Math.max(1, Math.ceil((sizeCells * cellDimensions.widthPx) / cellDimensions.heightPx));
+    let line = " ".repeat(IMAGE_LEFT_MARGIN_CELLS) + cleanup;
+    for (let index = 0; index < count; index++) {
+      const frames = CAT_LOADER_FRAMES_BY_COLOR[colors[index]];
+      const frame = frames[this.frame % frames.length];
+      const imageId = this.imageIds[index];
+      const sequence =
+        protocol === "kitty"
+          ? encodeKitty(frame, { columns: sizeCells, rows, imageId, moveCursor: false })
+          : encodeITerm2(frame, { width: sizeCells, height: "auto" });
+      if (protocol === "kitty") this.renderedImageIds.push(imageId);
+
+      // Anchor each image to the same baseline, independent of the protocol's
+      // cursor movement. Restore it so both the next cat and TUI stay aligned.
+      const moveUp = rows > 1 ? `\x1b[${rows - 1}A` : "";
+      const moveRight = index > 0 ? `\x1b[${index * (sizeCells + 1)}C` : "";
+      line += `\x1b7${moveUp}${moveRight}${sequence}\x1b8`;
+    }
+    return [...Array.from({ length: rows - 1 }, () => ""), line];
   }
 
   invalidate(): void {}
 
   dispose(): void {
     clearInterval(this.interval);
+    if (this.renderedImageIds.length > 0) {
+      this.tui.terminal.write(this.renderedImageIds.map(deleteKittyImage).join(""));
+      this.renderedImageIds = [];
+    }
   }
 }
 
@@ -169,10 +183,6 @@ function hideCatLoaderWithUi(ui: ExtensionUi): void {
   disposeActiveCatLoader();
 
   ui.setWidget(WIDGET_KEY, undefined);
-  if (lastImageId !== undefined) {
-    lastTui?.terminal.write(deleteKittyImage(lastImageId));
-    lastImageId = undefined;
-  }
   lastTui?.requestRender(true);
   lastTui = undefined;
   ui.setWorkingVisible(true);
@@ -182,6 +192,7 @@ export function clearAllKittyImages(ctx: ExtensionContext): void {
   if (ctx.mode !== "tui") return;
 
   const ui = ctx.ui;
+  hideCatLoaderWithUi(ui);
   ui.setWidget(WIDGET_KEY, () => new DeleteAllCatLoaders(), {
     placement: "aboveEditor",
   });
@@ -198,8 +209,8 @@ export function showCatLoader(ctx: ExtensionContext, force = false): void {
   if (ctx.mode !== "tui" || (!enabled && !force) || isTmux()) return;
 
   const ui = ctx.ui;
+  hideCatLoaderWithUi(ui);
   ui.setWorkingVisible(false);
-  disposeActiveCatLoader();
 
   ui.setWidget(
     WIDGET_KEY,

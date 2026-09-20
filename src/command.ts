@@ -1,6 +1,6 @@
 import type { AutocompleteItem } from "@earendil-works/pi-tui";
 
-import { CAT_LOADER_COLORS, type CatLoaderColor } from "./cat-frames.ts";
+import { CAT_LOADER_COLORS, MAX_CATS, type CatLoaderColor } from "./cat-frames.ts";
 
 export const MIN_SIZE_CELLS = 1;
 export const MAX_SIZE_CELLS = 20;
@@ -31,18 +31,12 @@ const SPEED_COMPLETIONS: AutocompleteItem[] = [
   { value: "speed fast", label: "fast", description: "30 frames per second" },
 ];
 
-const COLOR_COMPLETIONS: AutocompleteItem[] = CAT_LOADER_COLORS.map((color) => ({
-  value: `color ${color}`,
-  label: color,
-  description: `Use ${color} cat loader`,
-}));
-
 const COMMAND_ACTIONS: AutocompleteItem[] = [
   { value: "on", label: "on", description: "Enable cat loader" },
   { value: "off", label: "off", description: "Disable cat loader" },
-  { value: "size", label: "size", description: "Set cat loader width in cells" },
+  { value: "size", label: "size", description: "Set each cat's width in cells" },
   { value: "speed", label: "speed", description: "Set cat loader frame rate" },
-  { value: "color", label: "color", description: "Set cat loader color" },
+  { value: "color", label: "color", description: "Set ordered lineup of 1–5 cat colors" },
   { value: "preview", label: "preview", description: "Show cat loader for 5 seconds" },
   { value: "clear", label: "clear", description: "Clear terminal images" },
   { value: "help", label: "help", description: "Show usage" },
@@ -52,14 +46,14 @@ export const COMMAND_DESCRIPTION =
   "Toggle PNG-frame cat loader animation. Args: on, off, preview, clear, size, speed, color, help.";
 
 export const COMMAND_USAGE = [
-  "Usage: /cat-loader [on|off|preview|clear|size <cells|small|medium|large>|speed <fps|slow|normal|fast>|color <classic|black|gray|white|yellow>]",
+  "Usage: /cat-loader [on|off|preview|clear|size <cells|small|medium|large>|speed <fps|slow|normal|fast>|color <color> [color ...]]",
   "on      Enable cat loader",
   "off     Disable cat loader",
   "preview Show cat loader for 5 seconds",
   "clear   Clear terminal images",
-  "size    Set cat loader width in cells (1-20) or alias (small, medium, large)",
+  "size    Set each cat's width in cells (1-20) or alias (small, medium, large)",
   "speed   Set frame rate in FPS (1-60) or alias (slow, normal, fast)",
-  "color   Set cat color (classic, black, gray, white, yellow)",
+  "color   Set 1–5 ordered cat colors (classic, black, gray/grey, white, yellow); repeats allowed",
 ].join("\n");
 
 export function getArgumentCompletions(prefix: string): AutocompleteItem[] | null {
@@ -83,10 +77,18 @@ export function getArgumentCompletions(prefix: string): AutocompleteItem[] | nul
     return completions.length > 0 ? completions : null;
   }
   if (normalizedPrefix.startsWith("color ")) {
-    const colorPrefix = normalizedPrefix.slice("color ".length).trimStart();
-    const completions = COLOR_COMPLETIONS.filter((color) =>
-      color.value.slice("color ".length).startsWith(colorPrefix),
-    );
+    const tokens = normalizedPrefix.slice("color ".length).trimStart().split(/\s+/);
+    const colorPrefix = tokens.pop() ?? "";
+    if (tokens.length >= MAX_CATS || tokens.some((token) => parseColor(token) === undefined)) {
+      return null;
+    }
+    const completions = [...CAT_LOADER_COLORS, "grey"]
+      .filter((color) => color.startsWith(colorPrefix))
+      .map((color) => ({
+        value: ["color", ...tokens, color].join(" "),
+        label: color,
+        description: `Cat ${tokens.length + 1}: ${color}`,
+      }));
     return completions.length > 0 ? completions : null;
   }
   const completions = COMMAND_ACTIONS.filter((action) => action.value.startsWith(normalizedPrefix));
@@ -114,7 +116,15 @@ export function parseSpeed(value: string): number | undefined {
 }
 
 export function parseColor(value: string): CatLoaderColor | undefined {
-  return CAT_LOADER_COLORS.includes(value as CatLoaderColor)
-    ? (value as CatLoaderColor)
+  const color = value.toLowerCase() === "grey" ? "gray" : value.toLowerCase();
+  return CAT_LOADER_COLORS.includes(color as CatLoaderColor)
+    ? (color as CatLoaderColor)
     : undefined;
+}
+
+export function parseColors(value: string): CatLoaderColor[] | undefined {
+  const tokens = value.trim().split(/\s+/);
+  if (tokens.length > MAX_CATS) return undefined;
+  const colors = tokens.map(parseColor);
+  return colors.every((color): color is CatLoaderColor => color !== undefined) ? colors : undefined;
 }
