@@ -34,7 +34,7 @@ pi install npm:@kyuc/pi-cat-loader
 /cat-loader clear                 Clear terminal images
 /cat-loader size <value>          Set each cat's width (small, medium, large, or 1-20)
 /cat-loader speed <value>         Set frame rate (slow, normal, fast, or 1-60 FPS)
-/cat-loader color <colors...>     Set 1–5 ordered colors (classic, black, gray/grey, white, yellow)
+/cat-loader color <colors...>     Set 1–5 ordered colors (classic, black, gray/grey, white, peach)
 /cat-loader help                  Show help
 ```
 
@@ -42,7 +42,7 @@ pi install npm:@kyuc/pi-cat-loader
 
 ```text
 /cat-loader color white black grey
-/cat-loader color black black white gray yellow
+/cat-loader color black black white gray peach
 /cat-loader color classic
 ```
 
@@ -63,6 +63,6 @@ Settings are saved under pi's `catLoader` config key. You can change these throu
 }
 ```
 
-`sizeCells` must be `1-20` per cat. `framesPerSecond` must be `1-60`. `colors` must contain 1–5 entries: `classic`, `black`, `gray`, `white`, or `yellow`. `grey` is accepted and saved as `gray`. Default: one `classic` cat. Invalid lineups fall back to this default.
+`sizeCells` must be `1-20` per cat. `framesPerSecond` must be `1-60`. `colors` must contain 1–5 entries: `classic`, `black`, `gray`, `white`, or `peach`. `grey` is accepted and saved as `gray`. Default: one `classic` cat. Invalid lineups fall back to this default.
 
 Legacy `"color": "black"` settings load as `"colors": ["black"]`. Within one settings file, `colors` takes precedence over `color`. Project settings override global settings, including legacy colors. Commands save the new `colors` format globally.

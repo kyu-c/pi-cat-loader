@@ -55,7 +55,7 @@ describe("cat lineup rendering", () => {
       enabled: true,
       sizeCells: 4,
       framesPerSecond: 20,
-      colors: ["white", "black", "gray", "white", "yellow"],
+      colors: ["white", "black", "gray", "white", "peach"],
     });
   });
 
@@ -79,7 +79,7 @@ describe("cat lineup rendering", () => {
     expect(new Set(ids).size).toBe(5);
     vi.advanceTimersByTime(50);
     const nextLine = widget!.render(26)[1];
-    const colors = ["white", "black", "gray", "white", "yellow"] as const;
+    const colors = ["white", "black", "gray", "white", "peach"] as const;
     for (const [index, color] of colors.entries()) {
       const offset = index ? `\x1b[${index * 5}C` : "";
       expect(
