@@ -3,7 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   clearAllKittyImages,
   configureCatLoader,
-  getCatLoaderColor,
+  getCatLoaderColors,
   getCatLoaderEnabled,
   getCatLoaderFramesPerSecond,
   getCatLoaderSize,
@@ -12,7 +12,7 @@ import {
   previewCatLoader,
   resetInlineSpinner,
   setCatLoaderEnabled,
-  setCatLoaderColor,
+  setCatLoaderColors,
   setCatLoaderFramesPerSecond,
   setCatLoaderSize,
   showCatLoader,
@@ -25,7 +25,7 @@ import {
   MAX_SIZE_CELLS,
   MIN_FRAMES_PER_SECOND,
   MIN_SIZE_CELLS,
-  parseColor,
+  parseColors,
   parseSize,
   parseSpeed,
 } from "./command.ts";
@@ -36,7 +36,7 @@ function getCurrentSettings() {
     enabled: getCatLoaderEnabled(),
     sizeCells: getCatLoaderSize(),
     framesPerSecond: getCatLoaderFramesPerSecond(),
-    color: getCatLoaderColor(),
+    colors: getCatLoaderColors(),
   };
 }
 
@@ -66,7 +66,8 @@ export default function (pi: ExtensionAPI) {
     getArgumentCompletions,
     handler: async (args, ctx) => {
       const action = args.trim().toLowerCase();
-      const [command, value] = action.split(/\s+/, 2);
+      const [command, ...values] = action.split(/\s+/);
+      const value = values[0];
 
       if (action === "help" || action === "?") {
         ctx.ui.notify(COMMAND_USAGE, "info");
@@ -100,7 +101,7 @@ export default function (pi: ExtensionAPI) {
         setCatLoaderSize(size);
         await saveSettings(ctx.cwd, getCurrentSettings());
         hideCatLoader(ctx);
-        ctx.ui.notify(`Cat loader size set to ${getCatLoaderSize()} cells`, "info");
+        ctx.ui.notify(`Cat loader size set to ${getCatLoaderSize()} cells per cat`, "info");
         return;
       }
 
@@ -121,19 +122,22 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (command === "color") {
-        const color = parseColor(value ?? "");
-        if (color === undefined) {
-          ctx.ui.notify("Color must be classic, black, gray, white, or yellow", "error");
+        const colors = parseColors(values.join(" "));
+        if (colors === undefined) {
+          ctx.ui.notify(
+            "Choose 1–5 colors: classic, black, gray/grey, white, or yellow (repeats allowed)",
+            "error",
+          );
           return;
         }
-        setCatLoaderColor(color);
+        setCatLoaderColors(colors);
         await saveSettings(ctx.cwd, getCurrentSettings());
         if (isTmux()) {
-          ctx.ui.notify("Cat loader color saved; preview disabled in tmux", "info");
+          ctx.ui.notify("Cat loader lineup saved; preview disabled in tmux", "info");
           return;
         }
         previewCatLoader(ctx);
-        ctx.ui.notify(`Cat loader color set to ${getCatLoaderColor()}`, "info");
+        ctx.ui.notify(`Cat loader lineup set to ${getCatLoaderColors().join(" ")}`, "info");
         return;
       }
 

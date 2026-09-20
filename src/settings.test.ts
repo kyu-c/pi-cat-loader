@@ -36,7 +36,7 @@ describe("settings", () => {
       enabled: true,
       sizeCells: 4,
       framesPerSecond: 20,
-      color: "classic",
+      colors: ["classic"],
     });
   });
 
@@ -49,52 +49,75 @@ describe("settings", () => {
       enabled: false,
       sizeCells: 8,
       framesPerSecond: 20,
-      color: "black",
+      colors: ["white", "black", "gray", "black", "yellow"],
     });
 
     await expect(readFile(globalSettingsPath, "utf8").then(JSON.parse)).resolves.toEqual({
       theme: "dark",
-      catLoader: { enabled: false, sizeCells: 8, framesPerSecond: 20, color: "black" },
+      catLoader: {
+        enabled: false,
+        sizeCells: 8,
+        framesPerSecond: 20,
+        colors: ["white", "black", "gray", "black", "yellow"],
+      },
     });
   });
 
-  it("lets project settings override global settings", async () => {
+  it("migrates legacy color and saves only the new lineup", async () => {
+    const path = join(home, ".pi", "agent", "settings.json");
     await mkdir(join(home, ".pi", "agent"), { recursive: true });
-    await writeFile(
-      join(home, ".pi", "agent", "settings.json"),
-      JSON.stringify({ catLoader: { enabled: false } }),
-    );
-    await mkdir(join(cwd, ".pi"), { recursive: true });
-    await writeFile(
-      join(cwd, ".pi", "settings.json"),
-      JSON.stringify({ catLoader: { enabled: true } }),
-    );
+    await writeFile(path, JSON.stringify({ catLoader: { color: "grey" } }));
 
-    await expect(loadSettings(cwd)).resolves.toEqual({
-      enabled: true,
-      sizeCells: 4,
-      framesPerSecond: 20,
-      color: "classic",
-    });
+    const settings = await loadSettings(cwd);
+    expect(settings.colors).toEqual(["gray"]);
+    await saveSettings(cwd, settings);
+    const saved = JSON.parse(await readFile(path, "utf8")).catLoader;
+    expect(saved.colors).toEqual(["gray"]);
+    expect(saved).not.toHaveProperty("color");
   });
 
-  it("ignores project settings when they are not trusted", async () => {
-    await mkdir(join(home, ".pi", "agent"), { recursive: true });
-    await writeFile(
-      join(home, ".pi", "agent", "settings.json"),
-      JSON.stringify({ catLoader: { enabled: false } }),
-    );
-    await mkdir(join(cwd, ".pi"), { recursive: true });
-    await writeFile(
-      join(cwd, ".pi", "settings.json"),
-      JSON.stringify({ catLoader: { enabled: true } }),
-    );
-
-    await expect(loadSettings(cwd, { includeProjectSettings: false })).resolves.toEqual({
+  it("merges trusted project overrides, including legacy color, into global settings", async () => {
+    await saveSettings(cwd, {
       enabled: false,
-      sizeCells: 4,
+      sizeCells: 8,
       framesPerSecond: 20,
-      color: "classic",
+      colors: ["white", "black"],
+    });
+    await mkdir(join(cwd, ".pi"), { recursive: true });
+    await writeFile(
+      join(cwd, ".pi", "settings.json"),
+      JSON.stringify({ catLoader: { enabled: true, color: "yellow" } }),
+    );
+
+    expect(await loadSettings(cwd)).toMatchObject({
+      enabled: true,
+      sizeCells: 8,
+      colors: ["yellow"],
+    });
+    expect(await loadSettings(cwd, { includeProjectSettings: false })).toMatchObject({
+      enabled: false,
+      sizeCells: 8,
+      colors: ["white", "black"],
     });
   });
+
+  it("prefers new lineup over legacy color in the same scope and normalizes grey", async () => {
+    await mkdir(join(cwd, ".pi"), { recursive: true });
+    await writeFile(
+      join(cwd, ".pi", "settings.json"),
+      JSON.stringify({
+        catLoader: { color: "yellow", colors: ["white", "grey", "white"] },
+      }),
+    );
+    expect((await loadSettings(cwd)).colors).toEqual(["white", "gray", "white"]);
+  });
+
+  it.each([[], Array(6).fill("black"), ["white", "purple"]])(
+    "falls back to one classic cat for invalid lineup %j",
+    async (colors) => {
+      await mkdir(join(cwd, ".pi"), { recursive: true });
+      await writeFile(join(cwd, ".pi", "settings.json"), JSON.stringify({ catLoader: { colors } }));
+      expect((await loadSettings(cwd)).colors).toEqual(["classic"]);
+    },
+  );
 });

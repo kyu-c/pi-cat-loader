@@ -4,6 +4,24 @@ import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { Value } from "typebox/value";
 
+import { MAX_CATS } from "./cat-frames.ts";
+
+const ColorsSchema = Type.Array(
+  Type.Union([
+    Type.Literal("classic"),
+    Type.Literal("black"),
+    Type.Literal("gray"),
+    Type.Literal("white"),
+    Type.Literal("yellow"),
+  ]),
+  {
+    default: ["classic"],
+    minItems: 1,
+    maxItems: MAX_CATS,
+    description: "Ordered cat colors; repeats allowed.",
+  },
+);
+
 export const CatLoaderSettingsSchema = Type.Object(
   {
     enabled: Type.Boolean({
@@ -14,7 +32,7 @@ export const CatLoaderSettingsSchema = Type.Object(
       default: 4,
       minimum: 1,
       maximum: 20,
-      description: "Width of the cat loader in terminal cells.",
+      description: "Width of each cat in terminal cells.",
     }),
     framesPerSecond: Type.Integer({
       default: 20,
@@ -22,16 +40,7 @@ export const CatLoaderSettingsSchema = Type.Object(
       maximum: 60,
       description: "Animation frames rendered per second.",
     }),
-    color: Type.Union(
-      [
-        Type.Literal("classic"),
-        Type.Literal("black"),
-        Type.Literal("gray"),
-        Type.Literal("white"),
-        Type.Literal("yellow"),
-      ],
-      { default: "classic", description: "Color of the cat loader." },
-    ),
+    colors: ColorsSchema,
   },
   { additionalProperties: false },
 );
@@ -51,6 +60,21 @@ function getProjectSettingsPath(cwd: string): string {
 
 function parseSettings(value: unknown): CatLoaderSettings {
   return Value.Parse(CatLoaderSettingsSchema, Value.Repair(CatLoaderSettingsSchema, value));
+}
+
+// Normalize each scope before merging so a legacy project color can override
+// a global lineup. Within one scope, the new colors field takes precedence.
+function normalizeSettings(value: unknown): Record<string, unknown> {
+  if (!isObject(value)) return {};
+  const { color, ...settings } = value;
+  if (!("colors" in settings) && color !== undefined) settings.colors = [color];
+  if ("colors" in settings) {
+    const colors = Array.isArray(settings.colors)
+      ? settings.colors.map((color) => (color === "grey" ? "gray" : color))
+      : settings.colors;
+    settings.colors = Value.Check(ColorsSchema, colors) ? colors : ["classic"];
+  }
+  return settings;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -80,8 +104,8 @@ export async function loadSettings(
       ? {}
       : await readSettingsFile(getProjectSettingsPath(cwd));
   const rawSettings = {
-    ...(isObject(globalSettings[SETTINGS_KEY]) ? globalSettings[SETTINGS_KEY] : {}),
-    ...(isObject(projectSettings[SETTINGS_KEY]) ? projectSettings[SETTINGS_KEY] : {}),
+    ...normalizeSettings(globalSettings[SETTINGS_KEY]),
+    ...normalizeSettings(projectSettings[SETTINGS_KEY]),
   };
   return parseSettings(rawSettings);
 }
