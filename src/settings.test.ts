@@ -49,7 +49,7 @@ describe("settings", () => {
       enabled: false,
       sizeCells: 8,
       framesPerSecond: 20,
-      colors: ["white", "black", "gray", "black", "yellow"],
+      colors: ["white", "black", "gray", "black", "peach"],
     });
 
     await expect(readFile(globalSettingsPath, "utf8").then(JSON.parse)).resolves.toEqual({
@@ -58,7 +58,7 @@ describe("settings", () => {
         enabled: false,
         sizeCells: 8,
         framesPerSecond: 20,
-        colors: ["white", "black", "gray", "black", "yellow"],
+        colors: ["white", "black", "gray", "black", "peach"],
       },
     });
   });
@@ -86,13 +86,13 @@ describe("settings", () => {
     await mkdir(join(cwd, ".pi"), { recursive: true });
     await writeFile(
       join(cwd, ".pi", "settings.json"),
-      JSON.stringify({ catLoader: { enabled: true, color: "yellow" } }),
+      JSON.stringify({ catLoader: { enabled: true, color: "peach" } }),
     );
 
     expect(await loadSettings(cwd)).toMatchObject({
       enabled: true,
       sizeCells: 8,
-      colors: ["yellow"],
+      colors: ["peach"],
     });
     expect(await loadSettings(cwd, { includeProjectSettings: false })).toMatchObject({
       enabled: false,
@@ -101,18 +101,27 @@ describe("settings", () => {
     });
   });
 
+  it("falls back to classic for removed legacy yellow color", async () => {
+    await mkdir(join(cwd, ".pi"), { recursive: true });
+    await writeFile(
+      join(cwd, ".pi", "settings.json"),
+      JSON.stringify({ catLoader: { color: "yellow" } }),
+    );
+    expect((await loadSettings(cwd)).colors).toEqual(["classic"]);
+  });
+
   it("prefers new lineup over legacy color in the same scope and normalizes grey", async () => {
     await mkdir(join(cwd, ".pi"), { recursive: true });
     await writeFile(
       join(cwd, ".pi", "settings.json"),
       JSON.stringify({
-        catLoader: { color: "yellow", colors: ["white", "grey", "white"] },
+        catLoader: { color: "peach", colors: ["white", "grey", "white"] },
       }),
     );
     expect((await loadSettings(cwd)).colors).toEqual(["white", "gray", "white"]);
   });
 
-  it.each([[], Array(6).fill("black"), ["white", "purple"]])(
+  it.each([[], Array(6).fill("black"), ["white", "purple"], ["white", "yellow"]])(
     "falls back to one classic cat for invalid lineup %j",
     async (colors) => {
       await mkdir(join(cwd, ".pi"), { recursive: true });

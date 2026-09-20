@@ -12,7 +12,7 @@ const ColorsSchema = Type.Array(
     Type.Literal("black"),
     Type.Literal("gray"),
     Type.Literal("white"),
-    Type.Literal("yellow"),
+    Type.Literal("peach"),
   ]),
   {
     default: ["classic"],

@@ -42,8 +42,8 @@ describe("color command", () => {
   }
 
   it("persists the entire ordered lineup, then replaces it with a single color", async () => {
-    await command.handler("  color white BLACK\tgrey white yellow  ", ctx);
-    expect(await savedColors()).toEqual(["white", "black", "gray", "white", "yellow"]);
+    await command.handler("  color white BLACK\tgrey white peach  ", ctx);
+    expect(await savedColors()).toEqual(["white", "black", "gray", "white", "peach"]);
     expect(getCatLoaderColors()).toEqual(await savedColors());
 
     await command.handler("color black", ctx);
@@ -51,9 +51,17 @@ describe("color command", () => {
     expect(getCatLoaderColors()).toEqual(["black"]);
   });
 
+  it("rejects removed yellow without changing runtime or saved lineup", async () => {
+    await command.handler("color peach", ctx);
+    await command.handler("color white yellow", ctx);
+    expect(notify).toHaveBeenLastCalledWith(expect.any(String), "error");
+    expect(await savedColors()).toEqual(["peach"]);
+    expect(getCatLoaderColors()).toEqual(["peach"]);
+  });
+
   it("rejects a sixth cat without changing runtime or saved lineup", async () => {
     await command.handler("color white black", ctx);
-    await command.handler("color white black gray white yellow classic", ctx);
+    await command.handler("color white black gray white peach classic", ctx);
     expect(notify).toHaveBeenLastCalledWith(expect.any(String), "error");
     expect(await savedColors()).toEqual(["white", "black"]);
     expect(getCatLoaderColors()).toEqual(["white", "black"]);

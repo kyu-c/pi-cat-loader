@@ -53,7 +53,7 @@ export const COMMAND_USAGE = [
   "clear   Clear terminal images",
   "size    Set each cat's width in cells (1-20) or alias (small, medium, large)",
   "speed   Set frame rate in FPS (1-60) or alias (slow, normal, fast)",
-  "color   Set 1–5 ordered cat colors (classic, black, gray/grey, white, yellow); repeats allowed",
+  "color   Set 1–5 ordered cat colors (classic, black, gray/grey, white, peach); repeats allowed",
 ].join("\n");
 
 export function getArgumentCompletions(prefix: string): AutocompleteItem[] | null {

@@ -22,9 +22,9 @@ describe("cat lineups", () => {
 
   it("allows completing cat five but not adding cat six or continuing an invalid list", () => {
     expect(
-      getArgumentCompletions("color white black gray white y")?.map((item) => item.value),
-    ).toEqual(["color white black gray white yellow"]);
-    expect(getArgumentCompletions("color white black gray white yellow ")).toBeNull();
+      getArgumentCompletions("color white black gray white p")?.map((item) => item.value),
+    ).toEqual(["color white black gray white peach"]);
+    expect(getArgumentCompletions("color white black gray white peach ")).toBeNull();
     expect(getArgumentCompletions("color purple ")).toBeNull();
   });
 });
