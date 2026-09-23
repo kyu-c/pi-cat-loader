@@ -1,6 +1,11 @@
 import type { AutocompleteItem } from "@earendil-works/pi-tui";
 
-import { CAT_LOADER_COLORS, MAX_CATS, type CatLoaderColor } from "./cat-frames.ts";
+import {
+  CAT_LOADER_COLORS,
+  MAX_CATS,
+  type CatLoaderColor,
+  type CatLoaderColorOption,
+} from "./cat-frames.ts";
 
 export const MIN_SIZE_CELLS = 1;
 export const MAX_SIZE_CELLS = 20;
@@ -53,7 +58,7 @@ export const COMMAND_USAGE = [
   "clear   Clear terminal images",
   "size    Set each cat's width in cells (1-20) or alias (small, medium, large)",
   "speed   Set frame rate in FPS (1-60) or alias (slow, normal, fast)",
-  "color   Set 1–5 ordered cat colors (classic, black, gray/grey, white, peach); repeats allowed",
+  "color   Set 1–5 ordered cat colors (classic, black, gray/grey, white, peach, random); repeats allowed",
 ].join("\n");
 
 export function getArgumentCompletions(prefix: string): AutocompleteItem[] | null {
@@ -82,7 +87,7 @@ export function getArgumentCompletions(prefix: string): AutocompleteItem[] | nul
     if (tokens.length >= MAX_CATS || tokens.some((token) => parseColor(token) === undefined)) {
       return null;
     }
-    const completions = [...CAT_LOADER_COLORS, "grey"]
+    const completions = [...CAT_LOADER_COLORS, "grey", "random"]
       .filter((color) => color.startsWith(colorPrefix))
       .map((color) => ({
         value: ["color", ...tokens, color].join(" "),
@@ -115,16 +120,19 @@ export function parseSpeed(value: string): number | undefined {
   return framesPerSecond;
 }
 
-export function parseColor(value: string): CatLoaderColor | undefined {
+export function parseColor(value: string): CatLoaderColorOption | undefined {
   const color = value.toLowerCase() === "grey" ? "gray" : value.toLowerCase();
+  if (color === "random") return color;
   return CAT_LOADER_COLORS.includes(color as CatLoaderColor)
     ? (color as CatLoaderColor)
     : undefined;
 }
 
-export function parseColors(value: string): CatLoaderColor[] | undefined {
+export function parseColors(value: string): CatLoaderColorOption[] | undefined {
   const tokens = value.trim().split(/\s+/);
   if (tokens.length > MAX_CATS) return undefined;
   const colors = tokens.map(parseColor);
-  return colors.every((color): color is CatLoaderColor => color !== undefined) ? colors : undefined;
+  return colors.every((color): color is CatLoaderColorOption => color !== undefined)
+    ? colors
+    : undefined;
 }

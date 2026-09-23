@@ -64,6 +64,7 @@ describe("cat lineup rendering", () => {
     resetCapabilitiesCache();
     setCellDimensions(originalCellDimensions);
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -93,6 +94,27 @@ describe("cat lineup rendering", () => {
         ),
       ).toBe(true);
     }
+  });
+
+  it("holds random color while loading and rerolls on restart", () => {
+    setCapabilities({ images: "iterm2", trueColor: true, hyperlinks: true });
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    setCatLoaderColors(["random"]);
+    showCatLoader(ctx);
+    const first = widget!.render(6);
+    random.mockReturnValue(0.999);
+    widget!.render(1);
+    expect(widget!.render(6)).toEqual(first);
+    vi.advanceTimersByTime(50);
+    expect(
+      widget!
+        .render(6)[1]
+        .includes(
+          encodeITerm2(CAT_LOADER_FRAMES_BY_COLOR.classic[1], { width: 4, height: "auto" }),
+        ),
+    ).toBe(true);
+    previewCatLoader(ctx);
+    expect(widget!.render(6)).not.toEqual(first);
   });
 
   it("clips trailing cats without shrinking and deletes their old images on resize", () => {

@@ -8,6 +8,7 @@ export const MAX_CATS = 5;
 
 export const CAT_LOADER_COLORS = ["classic", "black", "gray", "white", "peach"] as const;
 export type CatLoaderColor = (typeof CAT_LOADER_COLORS)[number];
+export type CatLoaderColorOption = CatLoaderColor | "random";
 
 export const CAT_LOADER_FRAMES_BY_COLOR = {
   classic: CLASSIC_CAT_LOADER_FRAMES,

@@ -13,12 +13,13 @@ const ColorsSchema = Type.Array(
     Type.Literal("gray"),
     Type.Literal("white"),
     Type.Literal("peach"),
+    Type.Literal("random"),
   ]),
   {
     default: ["classic"],
     minItems: 1,
     maxItems: MAX_CATS,
-    description: "Ordered cat colors; repeats allowed.",
+    description: "Ordered cat colors; repeats allowed. Random picks per slot for each loading run.",
   },
 );
 

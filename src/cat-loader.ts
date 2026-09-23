@@ -12,7 +12,13 @@ import {
   type TUI,
 } from "@earendil-works/pi-tui";
 
-import { CAT_LOADER_FRAMES_BY_COLOR, MAX_CATS, type CatLoaderColor } from "./cat-frames.ts";
+import {
+  CAT_LOADER_COLORS,
+  CAT_LOADER_FRAMES_BY_COLOR,
+  MAX_CATS,
+  type CatLoaderColor,
+  type CatLoaderColorOption,
+} from "./cat-frames.ts";
 import type { CatLoaderSettings } from "./settings.ts";
 
 type ExtensionUi = ExtensionContext["ui"];
@@ -24,7 +30,7 @@ const SOURCE_DIMENSIONS = { widthPx: 112, heightPx: 112 };
 let enabled = true;
 let sizeCells = 4;
 let framesPerSecond = 20;
-let colors: CatLoaderColor[] = ["classic"];
+let colors: CatLoaderColorOption[] = ["classic"];
 let previewTimeout: NodeJS.Timeout | undefined;
 let lastTui: TUI | undefined;
 let activeCatLoader: AnimatedCatLoader | undefined;
@@ -65,11 +71,11 @@ export function setCatLoaderFramesPerSecond(value: number): void {
   disposeActiveCatLoader();
 }
 
-export function getCatLoaderColors(): CatLoaderColor[] {
+export function getCatLoaderColors(): CatLoaderColorOption[] {
   return [...colors];
 }
 
-export function setCatLoaderColors(value: CatLoaderColor[]): void {
+export function setCatLoaderColors(value: CatLoaderColorOption[]): void {
   colors = [...value];
 }
 
@@ -95,6 +101,7 @@ class DeleteAllCatLoaders implements Component {
 
 class AnimatedCatLoader implements Component {
   private frame = 0;
+  private readonly randomColors: CatLoaderColor[] = [];
   private readonly imageIds = Array.from({ length: MAX_CATS }, () => allocateImageId());
   private renderedImageIds: number[] = [];
   private readonly interval: NodeJS.Timeout;
@@ -103,6 +110,7 @@ class AnimatedCatLoader implements Component {
     private readonly tui: TUI,
     private readonly fallbackColor: (text: string) => string,
   ) {
+    this.resolveColors();
     lastTui = this.tui;
     this.interval = setInterval(() => {
       this.frame += 1;
@@ -110,7 +118,17 @@ class AnimatedCatLoader implements Component {
     }, 1000 / framesPerSecond);
   }
 
+  private resolveColors(): CatLoaderColor[] {
+    return colors.map((color, index) =>
+      color === "random"
+        ? (this.randomColors[index] ??=
+            CAT_LOADER_COLORS[Math.floor(Math.random() * CAT_LOADER_COLORS.length)])
+        : color,
+    );
+  }
+
   render(width: number): string[] {
+    const resolvedColors = this.resolveColors();
     // Keep one cell at either edge. Only draw whole cats; never shrink or wrap.
     const count = Math.min(colors.length, Math.max(0, Math.floor((width - 1) / (sizeCells + 1))));
     const cleanup = this.renderedImageIds.map(deleteKittyImage).join("");
@@ -119,7 +137,7 @@ class AnimatedCatLoader implements Component {
 
     const protocol = getCapabilities().images;
     if (!protocol) {
-      const frames = CAT_LOADER_FRAMES_BY_COLOR[colors[0]];
+      const frames = CAT_LOADER_FRAMES_BY_COLOR[resolvedColors[0]];
       return new Image(
         frames[this.frame % frames.length],
         "image/png",
@@ -136,7 +154,7 @@ class AnimatedCatLoader implements Component {
         : Math.max(1, Math.ceil((sizeCells * cellDimensions.widthPx) / cellDimensions.heightPx));
     let line = " ".repeat(IMAGE_LEFT_MARGIN_CELLS) + cleanup;
     for (let index = 0; index < count; index++) {
-      const frames = CAT_LOADER_FRAMES_BY_COLOR[colors[index]];
+      const frames = CAT_LOADER_FRAMES_BY_COLOR[resolvedColors[index]];
       const frame = frames[this.frame % frames.length];
       const imageId = this.imageIds[index];
       const sequence =
