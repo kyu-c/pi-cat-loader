@@ -125,7 +125,7 @@ export default function (pi: ExtensionAPI) {
         const colors = parseColors(values.join(" "));
         if (colors === undefined) {
           ctx.ui.notify(
-            "Choose 1–5 colors: classic, black, gray/grey, white, or peach (repeats allowed)",
+            "Choose 1–5 colors: classic, black, gray/grey, white, peach, or random (repeats allowed)",
             "error",
           );
           return;
