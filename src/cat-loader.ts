@@ -15,7 +15,6 @@ import {
 import {
   CAT_LOADER_COLORS,
   CAT_LOADER_FRAMES_BY_COLOR,
-  MAX_CATS,
   type CatLoaderColor,
   type CatLoaderColorOption,
 } from "./cat-frames.ts";
@@ -102,7 +101,7 @@ class DeleteAllCatLoaders implements Component {
 class AnimatedCatLoader implements Component {
   private frame = 0;
   private readonly randomColors: CatLoaderColor[] = [];
-  private readonly imageIds = Array.from({ length: MAX_CATS }, () => allocateImageId());
+  private readonly cachedImageIds = new Map<string, number>();
   private renderedImageIds: number[] = [];
   private readonly interval: NodeJS.Timeout;
 
@@ -131,7 +130,10 @@ class AnimatedCatLoader implements Component {
     const resolvedColors = this.resolveColors();
     // Keep one cell at either edge. Only draw whole cats; never shrink or wrap.
     const count = Math.min(colors.length, Math.max(0, Math.floor((width - 1) / (sizeCells + 1))));
-    const cleanup = this.renderedImageIds.map(deleteKittyImage).join("");
+    // Lowercase d=i removes placements without freeing cached pixel data.
+    const cleanup = this.renderedImageIds
+      .map((imageId) => `\x1b_Ga=d,d=i,i=${imageId},q=2\x1b\\`)
+      .join("");
     this.renderedImageIds = [];
     if (count === 0) return [cleanup];
 
@@ -156,12 +158,14 @@ class AnimatedCatLoader implements Component {
     for (let index = 0; index < count; index++) {
       const frames = CAT_LOADER_FRAMES_BY_COLOR[resolvedColors[index]];
       const frame = frames[this.frame % frames.length];
-      const imageId = this.imageIds[index];
-      const sequence =
-        protocol === "kitty"
-          ? encodeKitty(frame, { columns: sizeCells, rows, imageId, moveCursor: false })
-          : encodeITerm2(frame, { width: sizeCells, height: "auto" });
-      if (protocol === "kitty") this.renderedImageIds.push(imageId);
+      let sequence: string;
+      if (protocol === "kitty") {
+        const imageId = this.getCachedImageId(frame);
+        sequence = `\x1b_Ga=p,i=${imageId},p=${index + 1},q=2,C=1,c=${sizeCells},r=${rows}\x1b\\`;
+        this.renderedImageIds.push(imageId);
+      } else {
+        sequence = encodeITerm2(frame, { width: sizeCells, height: "auto" });
+      }
 
       // Anchor each image to the same baseline, independent of the protocol's
       // cursor movement. Restore it so both the next cat and TUI stay aligned.
@@ -172,14 +176,27 @@ class AnimatedCatLoader implements Component {
     return [...Array.from({ length: rows - 1 }, () => ""), line];
   }
 
+  private getCachedImageId(frame: string): number {
+    const cachedId = this.cachedImageIds.get(frame);
+    if (cachedId !== undefined) return cachedId;
+
+    const imageId = allocateImageId();
+    // Upload directly: render output can be discarded or replayed by the TUI.
+    // Reuse pi's chunking, but transmit without displaying (a=t, not a=T).
+    this.tui.terminal.write(encodeKitty(frame, { imageId }).replace("\x1b_Ga=T,", "\x1b_Ga=t,"));
+    this.cachedImageIds.set(frame, imageId);
+    return imageId;
+  }
+
   invalidate(): void {}
 
   dispose(): void {
     clearInterval(this.interval);
-    if (this.renderedImageIds.length > 0) {
-      this.tui.terminal.write(this.renderedImageIds.map(deleteKittyImage).join(""));
-      this.renderedImageIds = [];
+    if (this.cachedImageIds.size > 0) {
+      this.tui.terminal.write([...this.cachedImageIds.values()].map(deleteKittyImage).join(""));
+      this.cachedImageIds.clear();
     }
+    this.renderedImageIds = [];
   }
 }
 
