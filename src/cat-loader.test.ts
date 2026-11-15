@@ -87,7 +87,6 @@ describe("cat lineup rendering", () => {
         nextLine.includes(
           `\x1b7\x1b[1A${offset}${encodeKitty(CAT_LOADER_FRAMES_BY_COLOR[color][1], {
             columns: 4,
-            rows: 2,
             imageId: ids[index],
             moveCursor: false,
           })}\x1b8`,
@@ -117,12 +116,30 @@ describe("cat lineup rendering", () => {
     expect(widget!.render(6)).not.toEqual(first);
   });
 
+  it.each([
+    { widthPx: 9, heightPx: 18, rows: 2 },
+    { widthPx: 10, heightPx: 16, rows: 3 },
+    { widthPx: 20, heightPx: 44, rows: 2 },
+    { widthPx: 9, heightPx: 19, rows: 2 },
+  ])(
+    "reserves whole cat height in $widthPx×$heightPx cells without fixing rows",
+    ({ widthPx, heightPx, rows }) => {
+      setCellDimensions({ widthPx, heightPx });
+      showCatLoader(ctx);
+
+      const lines = widget!.render(26);
+
+      expect(lines).toHaveLength(rows);
+      expect(lines[rows - 1]).toContain("f=100,q=2,C=1,c=4,i=");
+    },
+  );
+
   it("clips trailing cats without shrinking and deletes their old images on resize", () => {
     showCatLoader(ctx);
     const ids = imageIds(widget!.render(26)[1]);
     const narrow = widget!.render(10)[1];
     expect(imageIds(narrow)).toEqual(ids.slice(0, 1));
-    expect(narrow).toContain("c=4,r=2");
+    expect(narrow).toContain("c=4,");
     for (const id of ids) expect(narrow).toContain(deleteKittyImage(id));
     expect(imageIds(widget!.render(11)[1])).toEqual(ids.slice(0, 2));
     const hidden = widget!.render(5).join("");

@@ -83,7 +83,8 @@ function getSquareImageRows(widthCells: number): number {
   const cellDimensions = getCellDimensions();
   const targetWidthPx = widthCells * cellDimensions.widthPx;
   const targetHeightPx = targetWidthPx * (SOURCE_DIMENSIONS.heightPx / SOURCE_DIMENSIONS.widthPx);
-  return Math.max(1, Math.floor(targetHeightPx / cellDimensions.heightPx));
+  // Reserve enough rows for the full image; Kitty derives its height from c and the aspect ratio.
+  return Math.max(1, Math.ceil(targetHeightPx / cellDimensions.heightPx));
 }
 
 function getImageRows(): number {
@@ -159,7 +160,7 @@ class AnimatedCatLoader implements Component {
       const imageId = this.imageIds[index];
       const sequence =
         protocol === "kitty"
-          ? encodeKitty(frame, { columns: sizeCells, rows, imageId, moveCursor: false })
+          ? encodeKitty(frame, { columns: sizeCells, imageId, moveCursor: false })
           : encodeITerm2(frame, { width: sizeCells, height: "auto" });
       if (protocol === "kitty") this.renderedImageIds.push(imageId);
 
