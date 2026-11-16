@@ -27,10 +27,10 @@
     "@earendil-works/pi-coding-agent": "^1.4.0",
     "@earendil-works/pi-tui": "^1.4.0",
     "@types/node": "^24.19.2",
-    "oxfmt": "^0.74.0",
+    "oxfmt": "^0.78.0",
     "typebox": "^1.4.3",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
