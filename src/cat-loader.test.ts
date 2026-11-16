@@ -18,6 +18,7 @@ import {
   hideCatLoader,
   previewCatLoader,
   setCatLoaderColors,
+  setCatLoaderConfetti,
   showCatLoader,
 } from "./cat-loader.ts";
 
@@ -56,6 +57,7 @@ describe("cat lineup rendering", () => {
       sizeCells: 4,
       framesPerSecond: 20,
       colors: ["white", "black", "gray", "white", "peach"],
+      confetti: true,
     });
   });
 
@@ -114,6 +116,64 @@ describe("cat lineup rendering", () => {
     ).toBe(true);
     previewCatLoader(ctx);
     expect(widget!.render(6)).not.toEqual(first);
+  });
+
+  it("pops pixel confetti above matching random cats", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    setCatLoaderColors(["random", "random", "random"]);
+    showCatLoader(ctx);
+    widget!.render(26);
+
+    vi.advanceTimersByTime(50);
+    const lines = widget!.render(26);
+
+    expect(lines[0]).toBe("");
+    expect(lines[1]).toMatch(
+      /\x1b7\x1b\[1A\x1b_Ga=T,f=32,o=z,s=144,v=36,q=2,C=1,c=16,r=2,i=\d+,z=1,/,
+    );
+    expect(imageIds(lines[1])).toHaveLength(4); // 3 cats + confetti
+  });
+
+  it("rains confetti for most of a preview, then stops", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    setCatLoaderColors(["random", "random", "random"]);
+    showCatLoader(ctx);
+    widget!.render(26);
+
+    vi.advanceTimersByTime(6000);
+    const raining = widget!.render(26)[1];
+    vi.advanceTimersByTime(3000);
+    const settled = widget!.render(26)[1];
+
+    expect(raining).toContain("f=32");
+    expect(settled).not.toContain("f=32");
+  });
+
+  it("skips confetti when random cats differ", () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    setCatLoaderColors(["random", "random"]);
+    showCatLoader(ctx);
+    random.mockReturnValue(0.999);
+    setCatLoaderColors(["random", "random", "random"]);
+    widget!.render(26);
+    vi.advanceTimersByTime(50);
+
+    const line = widget!.render(26)[1];
+
+    expect(line).not.toContain("f=32");
+  });
+
+  it("skips confetti when turned off", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    setCatLoaderConfetti(false);
+    setCatLoaderColors(["random", "random", "random"]);
+    showCatLoader(ctx);
+    widget!.render(26);
+    vi.advanceTimersByTime(50);
+
+    const line = widget!.render(26)[1];
+
+    expect(line).not.toContain("f=32");
   });
 
   it.each([

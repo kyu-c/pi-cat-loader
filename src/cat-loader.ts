@@ -1,3 +1,5 @@
+import { deflateSync } from "node:zlib";
+
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   allocateImageId,
@@ -26,11 +28,32 @@ type ExtensionUi = ExtensionContext["ui"];
 const WIDGET_KEY = "cat-loader";
 const IMAGE_LEFT_MARGIN_CELLS = 1;
 const SOURCE_DIMENSIONS = { widthPx: 112, heightPx: 112 };
+const CONFETTI_MIN_CATS = 3;
+const CONFETTI_PIECES_PER_POPPER = 24;
+// After the pop, confetti rains from the top at a steady rate for this long.
+const CONFETTI_RAIN_SECONDS = 5.5;
+const CONFETTI_RAIN_PIECES_PER_COLUMN_PER_SECOND = 1.6;
+const CONFETTI_PIECE_WIDTH_CELLS = 0.5;
+const CONFETTI_PIECE_HEIGHT_CELLS = 0.3;
+// Physics units are cells and seconds; y grows downward.
+const CONFETTI_GRAVITY = 8;
+const CONFETTI_MAX_FALL_SPEED = 1.5;
+const CONFETTI_DRAG_PER_SECOND = 0.2;
+const CONFETTI_SWAY = 1;
+const CONFETTI_COLORS = [
+  [255, 124, 107],
+  [255, 209, 102],
+  [6, 214, 160],
+  [76, 201, 240],
+  [199, 125, 255],
+  [255, 158, 199],
+];
 
 let enabled = true;
 let sizeCells = 4;
 let framesPerSecond = 20;
 let colors: CatLoaderColorOption[] = ["classic"];
+let confetti = true;
 let previewTimeout: NodeJS.Timeout | undefined;
 let lastTui: TUI | undefined;
 let activeCatLoader: AnimatedCatLoader | undefined;
@@ -44,6 +67,7 @@ export function configureCatLoader(settings: CatLoaderSettings): void {
   sizeCells = settings.sizeCells;
   framesPerSecond = settings.framesPerSecond;
   colors = [...settings.colors];
+  confetti = settings.confetti;
 }
 
 export function getCatLoaderEnabled(): boolean {
@@ -79,6 +103,14 @@ export function setCatLoaderColors(value: CatLoaderColorOption[]): void {
   colors = [...value];
 }
 
+export function getCatLoaderConfetti(): boolean {
+  return confetti;
+}
+
+export function setCatLoaderConfetti(value: boolean): void {
+  confetti = value;
+}
+
 function getSquareImageRows(widthCells: number): number {
   const cellDimensions = getCellDimensions();
   const targetWidthPx = widthCells * cellDimensions.widthPx;
@@ -89,6 +121,145 @@ function getSquareImageRows(widthCells: number): number {
 
 function getImageRows(): number {
   return getSquareImageRows(sizeCells);
+}
+
+function pickRandom<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+type ConfettiPiece = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  phase: number;
+  spin: number;
+  color: readonly number[];
+};
+
+// Kitty raw RGBA (f=32), zlib-compressed (o=z); mostly transparent, so it stays small.
+function encodeKittyRgba(
+  pixels: Uint8Array,
+  widthPx: number,
+  heightPx: number,
+  options: { columns: number; rows: number; imageId: number },
+): string {
+  const data = deflateSync(pixels).toString("base64");
+  const params = `a=T,f=32,o=z,s=${widthPx},v=${heightPx},q=2,C=1,c=${options.columns},r=${options.rows},i=${options.imageId},z=1`;
+  const chunks = data.match(/.{1,4096}/g) ?? [""];
+  return chunks
+    .map((chunk, index) => {
+      const more = index < chunks.length - 1 ? 1 : 0;
+      return index === 0
+        ? `\x1b_G${params},m=${more};${chunk}\x1b\\`
+        : `\x1b_Gm=${more};${chunk}\x1b\\`;
+    })
+    .join("");
+}
+
+// Two party poppers fire once from the bottom corners of the cat area toward each other,
+// then confetti rains from the top for a few seconds.
+// Physics runs in cell units; pieces are drawn as small tumbling pixel rectangles.
+class ConfettiPopper {
+  private pieces: ConfettiPiece[] = [];
+  private steps = 0;
+
+  constructor(private lastFrame: number) {}
+
+  render(frame: number, rows: number, columns: number, imageId: number): string {
+    for (; this.lastFrame < frame; this.lastFrame++) this.step(rows, columns);
+    if (this.pieces.length === 0) return "";
+
+    const { widthPx: cellWidthPx, heightPx: cellHeightPx } = getCellDimensions();
+    const widthPx = columns * cellWidthPx;
+    const heightPx = rows * cellHeightPx;
+    const pixels = new Uint8Array(widthPx * heightPx * 4);
+    const pieceWidthPx = Math.max(2, cellWidthPx * CONFETTI_PIECE_WIDTH_CELLS);
+    const pieceHeightPx = Math.max(1, cellWidthPx * CONFETTI_PIECE_HEIGHT_CELLS);
+    for (const piece of this.pieces) {
+      // Shrinking width with the spin phase makes each piece look like it flips.
+      const halfWidth = Math.max(0.5, (pieceWidthPx * Math.abs(Math.cos(piece.phase))) / 2);
+      const halfHeight = pieceHeightPx / 2;
+      const centerX = piece.x * cellWidthPx;
+      const centerY = piece.y * cellHeightPx;
+      const left = Math.max(0, Math.round(centerX - halfWidth));
+      const right = Math.min(widthPx, Math.round(centerX + halfWidth));
+      const top = Math.max(0, Math.round(centerY - halfHeight));
+      const bottom = Math.min(heightPx, Math.round(centerY + halfHeight));
+      const rgba = [...piece.color, 255];
+      for (let y = top; y < bottom; y++) {
+        for (let x = left; x < right; x++) {
+          pixels.set(rgba, (y * widthPx + x) * 4);
+        }
+      }
+    }
+    return encodeKittyRgba(pixels, widthPx, heightPx, { columns, rows, imageId });
+  }
+
+  private step(rows: number, columns: number): void {
+    const dt = 1 / framesPerSecond;
+    const elapsed = this.steps++ * dt;
+    if (elapsed === 0) this.pop(rows, columns);
+    this.rain(elapsed, dt, columns);
+
+    const drag = CONFETTI_DRAG_PER_SECOND ** dt;
+    for (const piece of this.pieces) {
+      piece.vy = Math.min(piece.vy + CONFETTI_GRAVITY * dt, CONFETTI_MAX_FALL_SPEED);
+      piece.vx *= drag;
+      piece.phase += piece.spin * dt;
+      piece.x += (piece.vx + Math.sin(piece.phase) * CONFETTI_SWAY) * dt;
+      piece.y += piece.vy * dt;
+    }
+    this.pieces = this.pieces.filter(
+      (piece) => piece.y < rows + 1 && piece.x >= -1 && piece.x < columns + 1,
+    );
+  }
+
+  private pop(rows: number, columns: number): void {
+    for (const direction of [1, -1]) {
+      for (let index = 0; index < CONFETTI_PIECES_PER_POPPER; index++) {
+        this.addPiece(
+          direction === 1 ? 0 : columns,
+          rows,
+          direction * (4 + Math.random() * 18),
+          -(2 + Math.random() * 4),
+        );
+      }
+    }
+  }
+
+  private rain(elapsed: number, dt: number, columns: number): void {
+    if (elapsed >= CONFETTI_RAIN_SECONDS) return;
+
+    // Spawn `expected` pieces on average, including a random fractional remainder.
+    const expected = CONFETTI_RAIN_PIECES_PER_COLUMN_PER_SECOND * columns * dt;
+    for (let remaining = expected; remaining > 0; remaining--) {
+      if (Math.random() < remaining) {
+        this.addPiece(Math.random() * columns, -0.2, Math.random() - 0.5, 0);
+      }
+    }
+  }
+
+  private addPiece(x: number, y: number, vx: number, vy: number): void {
+    this.pieces.push({
+      x,
+      y,
+      vx,
+      vy,
+      phase: Math.random() * Math.PI,
+      spin: 6 + Math.random() * 10,
+      color: pickRandom(CONFETTI_COLORS),
+    });
+  }
+}
+
+function isRandomJackpot(resolvedColors: CatLoaderColor[], count: number): boolean {
+  return (
+    confetti &&
+    count >= CONFETTI_MIN_CATS &&
+    colors.every((color) => color === "random") &&
+    resolvedColors.slice(0, count).every((color) => color === resolvedColors[0])
+  );
 }
 
 class DeleteAllCatLoaders implements Component {
@@ -104,7 +275,9 @@ class AnimatedCatLoader implements Component {
   private frame = 0;
   private readonly randomColors: CatLoaderColor[] = [];
   private readonly imageIds = Array.from({ length: MAX_CATS }, () => allocateImageId());
+  private readonly confettiImageId = allocateImageId();
   private renderedImageIds: number[] = [];
+  private confettiPopper: ConfettiPopper | undefined;
   private readonly interval: NodeJS.Timeout;
 
   constructor(
@@ -153,7 +326,21 @@ class AnimatedCatLoader implements Component {
       protocol === "kitty"
         ? getSquareImageRows(sizeCells)
         : Math.max(1, Math.ceil((sizeCells * cellDimensions.widthPx) / cellDimensions.heightPx));
-    let line = " ".repeat(IMAGE_LEFT_MARGIN_CELLS) + cleanup;
+    const moveUp = rows > 1 ? `\x1b[${rows - 1}A` : "";
+    const confetti =
+      protocol === "kitty" && isRandomJackpot(resolvedColors, count)
+        ? (this.confettiPopper ??= new ConfettiPopper(this.frame)).render(
+            this.frame,
+            rows,
+            IMAGE_LEFT_MARGIN_CELLS + count * (sizeCells + 1),
+            this.confettiImageId,
+          )
+        : "";
+    if (confetti) this.renderedImageIds.push(this.confettiImageId);
+
+    // Confetti covers the whole cat area from column 0, layered above cats (z=1).
+    let line = cleanup + (confetti ? `\x1b7${moveUp}${confetti}\x1b8` : "");
+    line += " ".repeat(IMAGE_LEFT_MARGIN_CELLS);
     for (let index = 0; index < count; index++) {
       const frames = CAT_LOADER_FRAMES_BY_COLOR[resolvedColors[index]];
       const frame = frames[this.frame % frames.length];
@@ -166,7 +353,6 @@ class AnimatedCatLoader implements Component {
 
       // Anchor each image to the same baseline, independent of the protocol's
       // cursor movement. Restore it so both the next cat and TUI stay aligned.
-      const moveUp = rows > 1 ? `\x1b[${rows - 1}A` : "";
       const moveRight = index > 0 ? `\x1b[${index * (sizeCells + 1)}C` : "";
       line += `\x1b7${moveUp}${moveRight}${sequence}\x1b8`;
     }

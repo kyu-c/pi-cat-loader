@@ -5,10 +5,10 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import extension from "./index.ts";
-import { configureCatLoader, getCatLoaderColors } from "./cat-loader.ts";
+import { configureCatLoader, getCatLoaderColors, getCatLoaderConfetti } from "./cat-loader.ts";
 import { DEFAULT_SETTINGS } from "./settings.ts";
 
-describe("color command", () => {
+describe("cat-loader command", () => {
   let directory: string;
   let ctx: ExtensionCommandContext;
   let command: Parameters<ExtensionAPI["registerCommand"]>[1];
@@ -37,8 +37,12 @@ describe("color command", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  async function savedSettings() {
+    return JSON.parse(await readFile(join(directory, "settings.json"), "utf8")).catLoader;
+  }
+
   async function savedColors() {
-    return JSON.parse(await readFile(join(directory, "settings.json"), "utf8")).catLoader.colors;
+    return (await savedSettings()).colors;
   }
 
   it("persists the entire ordered lineup, then replaces it with a single color", async () => {
@@ -65,5 +69,19 @@ describe("color command", () => {
     expect(notify).toHaveBeenLastCalledWith(expect.any(String), "error");
     expect(await savedColors()).toEqual(["white", "black"]);
     expect(getCatLoaderColors()).toEqual(["white", "black"]);
+  });
+
+  it("toggles and persists confetti, rejecting invalid values", async () => {
+    await command.handler("confetti off", ctx);
+    expect(getCatLoaderConfetti()).toBe(false);
+    expect((await savedSettings()).confetti).toBe(false);
+
+    await command.handler("confetti maybe", ctx);
+    expect(notify).toHaveBeenLastCalledWith(expect.any(String), "error");
+    expect(getCatLoaderConfetti()).toBe(false);
+
+    await command.handler("confetti on", ctx);
+    expect(getCatLoaderConfetti()).toBe(true);
+    expect((await savedSettings()).confetti).toBe(true);
   });
 });

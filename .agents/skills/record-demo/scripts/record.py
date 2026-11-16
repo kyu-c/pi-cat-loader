@@ -152,11 +152,6 @@ def record(state_file, overwrite):
     ):
         raise RuntimeError("Demo target changed. Prepare a new recording window.")
     foreground(state)
-    # Restore starting state after any inspection previews, then clear their notifications.
-    command(state["terminal"], "/cat-loader color classic")
-    time.sleep(5.5)
-    command(state["terminal"], "/new")
-    time.sleep(1)
     raw = directory / "raw.mov"
     with (directory / "capture.log").open("w") as log:
         capture = subprocess.Popen(["screencapture", "-x", "-o", "-v", f'-l{state["window"]}',

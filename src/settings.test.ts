@@ -37,6 +37,7 @@ describe("settings", () => {
       sizeCells: 4,
       framesPerSecond: 20,
       colors: ["classic"],
+      confetti: true,
     });
   });
 

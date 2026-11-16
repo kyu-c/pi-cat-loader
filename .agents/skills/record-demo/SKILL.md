@@ -30,7 +30,7 @@ Resolve `scripts/record.py` relative to this skill directory.
 
 1. Confirm permission to open/control a separate Ghostty window and record it. Leave existing windows and personal settings untouched.
 2. Run `python3 <skill-dir>/scripts/record.py prepare`. Helper brings its separate demo window forward. Keep printed state-file path.
-3. Keep demo window visible during inspection; obscured Ghostty windows can produce stale screenshots. Inspect prepared window with a window-specific screenshot. Verify model footer, TX-02 font, unclipped input/footer, and square-looking animated cats. Run a preview for verification if needed, then wait for it to finish. Preparation does not record.
+3. Keep demo window visible during inspection; obscured Ghostty windows can produce stale screenshots. Inspect prepared window with a window-specific screenshot. Verify model footer, TX-02 font, and unclipped input/footer. Don't type commands in the prepared window: recording starts from its current screen, so leftover notifications or changed settings appear in the video. Verify cat proportions in recorded frames instead; if anything was typed, prepare a new window. Preparation does not record.
 4. Run `python3 <skill-dir>/scripts/record.py record <state-file>`. If output already exists, ask before passing `--overwrite`.
 5. Inspect extracted frames from all three runs, plus playback when possible. Check square proportions, smooth motion, single → three → three sequence, footer visibility, and absence of private desktop content. Report output path.
 

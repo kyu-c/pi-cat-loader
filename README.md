@@ -8,7 +8,7 @@
 
 Animated rolling cat loader for [pi](https://pi.dev). Replaces pi's inline spinner with cat animation and adds `/cat-loader` command controls.
 
-https://github.com/user-attachments/assets/8f99ebc7-127c-4250-9084-bb93f1f1251e
+https://github.com/user-attachments/assets/c1bd0e65-c1c3-42d9-b8d6-38fea42289ae
 
 ## Compatibility
 
@@ -37,6 +37,7 @@ pi install npm:@kyuc/pi-cat-loader
 /cat-loader size <value>          Set each cat's width (small, medium, large, or 1-20)
 /cat-loader speed <value>         Set frame rate (slow, normal, fast, or 1-60 FPS)
 /cat-loader color <colors...>     Set 1–5 ordered colors (classic, black, gray/grey, white, peach, random)
+/cat-loader confetti <on|off>     Toggle confetti when 3+ random cats match
 /cat-loader help                  Show help
 ```
 
@@ -53,6 +54,8 @@ Choose 1–5 cats in left-to-right order; repeated colors are allowed. One color
 
 Each `random` slot independently picks from the five colors with equal odds at the start of each loading run or preview. Picks stay fixed across animation frames, redraws, and resizing. Duplicates and repeated picks between runs are allowed. Settings retain `random`, not the picked colors.
 
+When every slot is `random` and 3 or more visible cats land on the same color, confetti pops over the cats once at the start of the run (kitty only). Turn it off with `/cat-loader confetti off`.
+
 ## Configuration
 
 Settings are saved under pi's `catLoader` config key. You can change these through `/cat-loader` commands, or edit pi settings directly:
@@ -63,11 +66,12 @@ Settings are saved under pi's `catLoader` config key. You can change these throu
     "enabled": true,
     "sizeCells": 4,
     "framesPerSecond": 20,
-    "colors": ["white", "black", "gray"]
+    "colors": ["white", "black", "gray"],
+    "confetti": true
   }
 }
 ```
 
-`sizeCells` must be `1-20` per cat. `framesPerSecond` must be `1-60`. `colors` must contain 1–5 entries: `classic`, `black`, `gray`, `white`, `peach`, or `random`. `grey` is accepted and saved as `gray`. Default: one `classic` cat. Invalid lineups fall back to this default.
+`sizeCells` must be `1-20` per cat. `framesPerSecond` must be `1-60`. `colors` must contain 1–5 entries: `classic`, `black`, `gray`, `white`, `peach`, or `random`. `grey` is accepted and saved as `gray`. Default: one `classic` cat. Invalid lineups fall back to this default. `confetti` defaults to `true`.
 
 Legacy `"color": "black"` settings load as `"colors": ["black"]`. Within one settings file, `colors` takes precedence over `color`. Project settings override global settings, including legacy colors. Commands save the new `colors` format globally.
