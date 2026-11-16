@@ -4,6 +4,7 @@ import {
   clearAllKittyImages,
   configureCatLoader,
   getCatLoaderColors,
+  getCatLoaderConfetti,
   getCatLoaderEnabled,
   getCatLoaderFramesPerSecond,
   getCatLoaderSize,
@@ -13,6 +14,7 @@ import {
   resetInlineSpinner,
   setCatLoaderEnabled,
   setCatLoaderColors,
+  setCatLoaderConfetti,
   setCatLoaderFramesPerSecond,
   setCatLoaderSize,
   showCatLoader,
@@ -37,6 +39,7 @@ function getCurrentSettings() {
     sizeCells: getCatLoaderSize(),
     framesPerSecond: getCatLoaderFramesPerSecond(),
     colors: getCatLoaderColors(),
+    confetti: getCatLoaderConfetti(),
   };
 }
 
@@ -138,6 +141,17 @@ export default function (pi: ExtensionAPI) {
         }
         previewCatLoader(ctx);
         ctx.ui.notify(`Cat loader lineup set to ${getCatLoaderColors().join(" ")}`, "info");
+        return;
+      }
+
+      if (command === "confetti") {
+        if (value !== "on" && value !== "off") {
+          ctx.ui.notify("Confetti must be on or off", "error");
+          return;
+        }
+        setCatLoaderConfetti(value === "on");
+        await saveSettings(ctx.cwd, getCurrentSettings());
+        ctx.ui.notify(`Confetti ${value === "on" ? "enabled" : "disabled"}`, "info");
         return;
       }
 

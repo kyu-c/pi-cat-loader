@@ -29,6 +29,18 @@ describe("cat lineups", () => {
   });
 });
 
+describe("confetti completions", () => {
+  it("completes on and off", () => {
+    expect(getArgumentCompletions("confetti ")?.map((item) => item.value)).toEqual([
+      "confetti on",
+      "confetti off",
+    ]);
+    expect(getArgumentCompletions("confetti of")?.map((item) => item.value)).toEqual([
+      "confetti off",
+    ]);
+  });
+});
+
 describe("parseSpeed", () => {
   it.each([
     ["slow", 10],

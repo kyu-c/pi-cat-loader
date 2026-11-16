@@ -36,29 +36,36 @@ const SPEED_COMPLETIONS: AutocompleteItem[] = [
   { value: "speed fast", label: "fast", description: "30 frames per second" },
 ];
 
+const CONFETTI_COMPLETIONS: AutocompleteItem[] = [
+  { value: "confetti on", label: "on", description: "Pop confetti when random cats match" },
+  { value: "confetti off", label: "off", description: "Disable confetti" },
+];
+
 const COMMAND_ACTIONS: AutocompleteItem[] = [
   { value: "on", label: "on", description: "Enable cat loader" },
   { value: "off", label: "off", description: "Disable cat loader" },
   { value: "size", label: "size", description: "Set each cat's width in cells" },
   { value: "speed", label: "speed", description: "Set cat loader frame rate" },
   { value: "color", label: "color", description: "Set ordered lineup of 1–5 cat colors" },
+  { value: "confetti", label: "confetti", description: "Toggle matching random cat confetti" },
   { value: "preview", label: "preview", description: "Show cat loader for 5 seconds" },
   { value: "clear", label: "clear", description: "Clear terminal images" },
   { value: "help", label: "help", description: "Show usage" },
 ];
 
 export const COMMAND_DESCRIPTION =
-  "Toggle PNG-frame cat loader animation. Args: on, off, preview, clear, size, speed, color, help.";
+  "Toggle PNG-frame cat loader animation. Args: on, off, preview, clear, size, speed, color, confetti, help.";
 
 export const COMMAND_USAGE = [
-  "Usage: /cat-loader [on|off|preview|clear|size <cells|small|medium|large>|speed <fps|slow|normal|fast>|color <color> [color ...]]",
-  "on      Enable cat loader",
-  "off     Disable cat loader",
-  "preview Show cat loader for 5 seconds",
-  "clear   Clear terminal images",
-  "size    Set each cat's width in cells (1-20) or alias (small, medium, large)",
-  "speed   Set frame rate in FPS (1-60) or alias (slow, normal, fast)",
-  "color   Set 1–5 ordered cat colors (classic, black, gray/grey, white, peach, random); repeats allowed",
+  "Usage: /cat-loader [on|off|preview|clear|size <cells|small|medium|large>|speed <fps|slow|normal|fast>|color <color> [color ...]|confetti <on|off>]",
+  "on       Enable cat loader",
+  "off      Disable cat loader",
+  "preview  Show cat loader for 5 seconds",
+  "clear    Clear terminal images",
+  "size     Set each cat's width in cells (1-20) or alias (small, medium, large)",
+  "speed    Set frame rate in FPS (1-60) or alias (slow, normal, fast)",
+  "color    Set 1–5 ordered cat colors (classic, black, gray/grey, white, peach, random); repeats allowed",
+  "confetti Pop confetti when 3+ random cats all match (on, off)",
 ].join("\n");
 
 export function getArgumentCompletions(prefix: string): AutocompleteItem[] | null {
@@ -78,6 +85,13 @@ export function getArgumentCompletions(prefix: string): AutocompleteItem[] | nul
       (speed) =>
         speed.value.slice("speed ".length).startsWith(speedPrefix) ||
         speed.description?.startsWith(speedPrefix),
+    );
+    return completions.length > 0 ? completions : null;
+  }
+  if (normalizedPrefix.startsWith("confetti ")) {
+    const confettiPrefix = normalizedPrefix.slice("confetti ".length).trimStart();
+    const completions = CONFETTI_COMPLETIONS.filter((item) =>
+      item.label.startsWith(confettiPrefix),
     );
     return completions.length > 0 ? completions : null;
   }

@@ -42,6 +42,10 @@ export const CatLoaderSettingsSchema = Type.Object(
       description: "Animation frames rendered per second.",
     }),
     colors: ColorsSchema,
+    confetti: Type.Boolean({
+      default: true,
+      description: "Pop confetti when 3 or more random cats all match.",
+    }),
   },
   { additionalProperties: false },
 );
